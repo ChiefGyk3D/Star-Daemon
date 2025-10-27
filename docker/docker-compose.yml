@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  star-daemon:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: star-daemon
+    restart: unless-stopped
+    
+    # Option 1: Use .env file (default)
+    env_file:
+      - ../.env
+    
+    # Option 2: Use Doppler (uncomment and configure)
+    # environment:
+    #   DOPPLER_TOKEN: ${DOPPLER_TOKEN}
+    # entrypoint: ["doppler", "run", "--", "python", "-u", "star-daemon.py"]
+    
+    volumes:
+      # Mount for persistent data if needed
+      - ../data:/app/data
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Network configuration
+    networks:
+      - star-daemon-network
+
+networks:
+  star-daemon-network:
+    driver: bridge

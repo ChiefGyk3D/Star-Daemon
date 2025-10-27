@@ -1,0 +1,21 @@
+# Base requirements without version pins
+# Use this as input for pip-compile to generate requirements.txt with hashes
+
+# Core
+python-dotenv
+requests
+
+# Platform APIs
+PyGithub
+Mastodon.py
+atproto
+discord-webhook
+matrix-nio
+
+# Security
+cryptography
+certifi
+
+# Async
+aiohttp
+aiofiles
