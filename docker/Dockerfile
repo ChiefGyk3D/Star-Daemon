@@ -1,39 +1,51 @@
 FROM python:3.13-slim
 
+# Set build arguments for platform detection (automatically set by buildx)
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+
 # Set working directory
 WORKDIR /app
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
-
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# Install system dependencies needed for Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
-    libolm-dev \
+    libffi-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Create and activate virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+RUN python -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY requirements.txt /app/
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy the application files
+COPY star-daemon.py /app/
+COPY config.py /app/
+COPY connectors/ /app/connectors/
+COPY .env.example /app/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 stardaemon && \
-    chown -R stardaemon:stardaemon /app
+    chown -R stardaemon:stardaemon /app && \
+    mkdir -p /home/stardaemon && \
+    chown -R stardaemon:stardaemon /home/stardaemon
 
 USER stardaemon
 
-# Health check
-HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import sys; sys.exit(0)"
+# Set home directory for state file persistence
+ENV HOME=/home/stardaemon
 
 # Run the application
-CMD ["python", "-u", "star-daemon.py"]
+CMD ["python", "star-daemon.py"]

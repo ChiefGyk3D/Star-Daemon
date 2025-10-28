@@ -8,17 +8,15 @@ services:
     container_name: star-daemon
     restart: unless-stopped
     
-    # Option 1: Use .env file (default)
+    # Load all environment variables from .env file
+    # Generate .env from Doppler: doppler secrets download --no-file --format env > .env
     env_file:
       - ../.env
     
-    # Option 2: Use Doppler (uncomment and configure)
-    # environment:
-    #   DOPPLER_TOKEN: ${DOPPLER_TOKEN}
-    # entrypoint: ["doppler", "run", "--", "python", "-u", "star-daemon.py"]
-    
     volumes:
-      # Mount for persistent data if needed
+      # Mount for persistent state file
+      - star-daemon-state:/home/stardaemon
+      # Optional: mount for additional data
       - ../data:/app/data
     
     # Resource limits
@@ -41,6 +39,10 @@ services:
     # Network configuration
     networks:
       - star-daemon-network
+
+volumes:
+  star-daemon-state:
+    driver: local
 
 networks:
   star-daemon-network:

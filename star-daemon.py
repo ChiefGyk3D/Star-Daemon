@@ -10,6 +10,9 @@ import time
 import logging
 import sys
 import signal
+import json
+import os
+from pathlib import Path
 from typing import List, Set
 from github import Github
 from github.Repository import Repository
@@ -43,6 +46,7 @@ class StarDaemon:
         self.starred_repos: Set[str] = set()
         self.connectors = []
         self.running = True
+        self.state_file = Path.home() / '.star-daemon-state.json'
     
     def initialize(self) -> bool:
         """Initialize GitHub client and connectors"""
@@ -63,9 +67,19 @@ class StarDaemon:
             
             logger.info(f"Monitoring GitHub stars for user: {self.user.login}")
             
-            # Get initial starred repos
-            self.starred_repos = {repo.full_name for repo in self.user.get_starred()}
-            logger.info(f"Currently tracking {len(self.starred_repos)} starred repositories")
+            # Load previously tracked repos from state file
+            self._load_state()
+            
+            # Get current starred repos
+            current_starred = {repo.full_name for repo in self.user.get_starred()}
+            
+            # If no state exists, initialize with current stars (don't post existing ones)
+            if not self.starred_repos:
+                self.starred_repos = current_starred
+                self._save_state()
+                logger.info(f"Initial run: tracking {len(self.starred_repos)} starred repositories (won't post existing stars)")
+            else:
+                logger.info(f"Loaded {len(self.starred_repos)} previously tracked repositories from state file")
             
             # Initialize connectors
             self._initialize_connectors()
@@ -100,7 +114,8 @@ class StarDaemon:
         # Discord
         if config.discord_enabled:
             connector = DiscordConnector(
-                webhook_url=config.discord_webhook_url
+                webhook_url=config.discord_webhook_url,
+                role_id=getattr(config, 'discord_role_id', None)  # Optional role mention
             )
             if connector.initialize() and connector.test_connection():
                 self.connectors.append(connector)
@@ -109,10 +124,10 @@ class StarDaemon:
         if config.matrix_enabled:
             connector = MatrixConnector(
                 homeserver=config.matrix_homeserver,
+                room_id=config.matrix_room_id,
                 user_id=config.matrix_user_id,
                 password=config.matrix_password,
-                access_token=config.matrix_access_token,
-                room_id=config.matrix_room_id
+                access_token=config.matrix_access_token
             )
             if connector.initialize() and connector.test_connection():
                 self.connectors.append(connector)
@@ -134,6 +149,7 @@ class StarDaemon:
                 
                 # Update tracked repos
                 self.starred_repos = set(current_starred.keys())
+                self._save_state()
             
         except Exception as e:
             logger.error(f"Error checking for new stars: {e}", exc_info=True)
@@ -148,9 +164,25 @@ class StarDaemon:
                 description=repo.description or "No description"
             )
             
-            # Prepare metadata
+            # Prepare repository data for rich embeds
+            repo_data = {
+                'full_name': repo.full_name,
+                'name': repo.name,
+                'description': repo.description,
+                'language': repo.language,
+                'stargazers_count': repo.stargazers_count,
+                'forks_count': repo.forks_count,
+                'owner': {
+                    'avatar_url': repo.owner.avatar_url if repo.owner else None
+                }
+            }
+            
+            # Prepare metadata with repo_data for connectors
             metadata = {
                 'url': repo.html_url,
+                'repo_data': repo_data,
+                'thumbnail_url': repo.owner.avatar_url if repo.owner else None,
+                # Legacy fields for backwards compatibility
                 'name': repo.full_name,
                 'description': repo.description,
                 'language': repo.language,
@@ -173,6 +205,31 @@ class StarDaemon:
         
         except Exception as e:
             logger.error(f"Error handling new star: {e}", exc_info=True)
+    
+    def _load_state(self):
+        """Load tracked repositories from state file"""
+        try:
+            if self.state_file.exists():
+                with open(self.state_file, 'r') as f:
+                    state = json.load(f)
+                    self.starred_repos = set(state.get('starred_repos', []))
+                logger.info(f"Loaded state from {self.state_file}")
+        except Exception as e:
+            logger.warning(f"Could not load state file: {e}")
+            self.starred_repos = set()
+    
+    def _save_state(self):
+        """Save tracked repositories to state file"""
+        try:
+            state = {
+                'starred_repos': list(self.starred_repos),
+                'last_updated': time.time()
+            }
+            with open(self.state_file, 'w') as f:
+                json.dump(state, f, indent=2)
+            logger.debug(f"Saved state to {self.state_file}")
+        except Exception as e:
+            logger.warning(f"Could not save state file: {e}")
     
     def run(self):
         """Main daemon loop"""

@@ -274,7 +274,7 @@ Before submitting your PR, ensure:
 
 ## 📜 License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the Mozilla Public License Version 2.0 (MPL-2.0) under the terms described in the project's `LICENSE` file.
 
 ---
 

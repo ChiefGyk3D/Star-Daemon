@@ -1,12 +1,12 @@
 # Star-Daemon Requirements
-# Updated: 2025-10-26
+# Updated: 2025-10-27
 # 
 # For Shai-Hulud mitigations with hashes, run:
 # pip-compile --generate-hashes requirements.in -o requirements-lock.txt
 # pip install -r requirements-lock.txt --require-hashes
 
 # Core dependencies
-python-dotenv==1.1.1
+python-dotenv==1.2.1
 requests==2.32.5
 
 # GitHub API
@@ -16,17 +16,17 @@ PyGithub==2.8.1
 Mastodon.py==2.1.4
 
 # BlueSky / AT Protocol
-atproto==0.0.62
+atproto==0.0.63
+beautifulsoup4==4.14.2
 
 # Discord
 discord.py==2.6.4
 discord-webhook==1.3.1
 
-# Matrix
-matrix-nio==0.25.2
+# Matrix (using requests instead of nio for simpler HTTP-based approach)
+# matrix-nio removed - using Matrix Client-Server API directly via requests
 
 # Security and utilities
-cryptography==46.0.3
 certifi==2025.10.5
 urllib3==2.5.0
 charset-normalizer==3.4.4
@@ -37,10 +37,11 @@ protobuf==4.25.8
 aiohttp==3.13.1
 aiofiles==25.1.0
 
-# Optional: Doppler SDK for secrets management
-doppler-sdk==1.3.0
+# Secrets Management (Optional - install what you need)
+doppler-sdk==1.3.0  # Doppler
+boto3==1.40.60  # AWS Secrets Manager
+hvac==2.3.0  # HashiCorp Vault
 
 # Dependencies
 python-dateutil==2.9.0.post0
 six==1.17.0
-beautifulsoup4==4.14.2

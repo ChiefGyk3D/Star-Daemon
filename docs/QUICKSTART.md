@@ -104,8 +104,15 @@ MESSAGE_TEMPLATE="..."    # Custom message format
 ### GitHub
 1. Go to https://github.com/settings/tokens
 2. Generate new token (classic)
-3. Select scopes: `repo`, `user`
-4. Copy token to `GITHUB_ACCESS_TOKEN`
+3. Select scopes (recommendation):
+	- For public repository monitoring only: use the classic `public_repo` scope, or better — create a fine-grained token with Repository → Read-only permissions for the specific repositories (or organization) you want to monitor.
+	- If you need access to private repositories or additional features, include `repo` (classic) or grant the specific fine-grained repository permissions required.
+4. Copy token to `GITHUB_ACCESS_TOKEN` (or store it in your secrets manager such as Doppler, AWS Secrets Manager, or Vault and reference it in `.env`)
+
+Notes:
+- Fine-grained tokens are recommended when possible — they allow you to scope access to specific repositories and limit permissions.
+- If you only want to monitor public stars, `public_repo` (classic) or a fine-grained read-only repository token is sufficient.
+- Never commit your token to the repository; keep it in a secret store or GitHub Secrets for CI.
 
 ### Mastodon
 1. Go to your instance → Preferences → Development
@@ -192,7 +199,7 @@ MESSAGE_TEMPLATE="..."    # Custom message format
 
 ## 📄 License
 
-MIT License - See [LICENSE](LICENSE) file
+Mozilla Public License Version 2.0 (MPL-2.0) - See [LICENSE](LICENSE) file
 
 ---
 
