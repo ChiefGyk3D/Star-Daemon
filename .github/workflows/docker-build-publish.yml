@@ -126,26 +126,26 @@ jobs:
       id: check-credentials
       run: |
         # Debug: Show what we're checking (without revealing actual values)
-        echo "Checking for DOCKER_USERNAME..."
-        if [ -n "${{ secrets.DOCKER_USERNAME }}" ]; then
-          echo "  ✅ DOCKER_USERNAME is set"
+        echo "Checking for DOCKERHUB_USERNAME..."
+        if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+          echo "  ✅ DOCKERHUB_USERNAME is set"
         else
-          echo "  ❌ DOCKER_USERNAME is NOT set"
+          echo "  ❌ DOCKERHUB_USERNAME is NOT set"
         fi
         
-        echo "Checking for DOCKER_TOKEN..."
-        if [ -n "${{ secrets.DOCKER_TOKEN }}" ]; then
-          echo "  ✅ DOCKER_TOKEN is set"
+        echo "Checking for DOCKERHUB_TOKEN..."
+        if [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+          echo "  ✅ DOCKERHUB_TOKEN is set"
         else
-          echo "  ❌ DOCKER_TOKEN is NOT set"
+          echo "  ❌ DOCKERHUB_TOKEN is NOT set"
         fi
         
         # Set skip flag if either is missing
-        if [ -z "${{ secrets.DOCKER_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_TOKEN }}" ]; then
+        if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
           echo "skip=true" >> $GITHUB_OUTPUT
           echo ""
           echo "⚠️  Docker Hub credentials not configured - skipping Docker Hub publish"
-          echo "    Please add DOCKER_USERNAME and DOCKER_TOKEN to repository secrets"
+          echo "    Please add DOCKERHUB_USERNAME and DOCKERHUB_TOKEN to repository secrets"
         else
           echo "skip=false" >> $GITHUB_OUTPUT
           echo ""
@@ -156,15 +156,15 @@ jobs:
       if: steps.check-credentials.outputs.skip != 'true'
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_TOKEN }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Extract metadata for Docker Hub
       if: steps.check-credentials.outputs.skip != 'true'
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ secrets.DOCKER_USERNAME }}/star-daemon
+        images: ${{ secrets.DOCKERHUB_USERNAME }}/star-daemon
         tags: |
           type=ref,event=branch
           type=semver,pattern={{version}}
