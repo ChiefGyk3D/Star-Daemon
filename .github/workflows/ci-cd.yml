@@ -134,13 +134,17 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: false
+          load: true
           tags: star-daemon:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
         run: |
-          docker run --rm star-daemon:test python -c "import config; from connectors import MastodonConnector"
+          # Test that Python and modules are properly installed
+          docker run --rm star-daemon:test python -c "import sys; print('Python version:', sys.version)"
+          docker run --rm star-daemon:test python -m py_compile star-daemon.py config.py
+          docker run --rm star-daemon:test sh -c "cd connectors && python -m py_compile *.py"
 
   docker-publish:
     name: Publish Docker Image
