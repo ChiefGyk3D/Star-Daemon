@@ -65,20 +65,23 @@ jobs:
 
       - name: Validate GitHub token (if provided)
         # This step will check that a provided token can authenticate to the GitHub API
-        # and can access the /user/starred endpoint. If no token is provided, the step
-        # will skip and tests will run unauthenticated (rate limits apply).
+        # and can access the /user/starred endpoint. If no custom token is provided, the step
+        # will skip. The default GITHUB_TOKEN doesn't have starred access.
         env:
-          TOKEN: ${{ secrets.STAR_DAEMON_GITHUB_TOKEN || secrets.GITHUB_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+          TOKEN: ${{ secrets.STAR_DAEMON_GITHUB_TOKEN || secrets.GITHUB_ACCESS_TOKEN || '' }}
         run: |
           if [ -z "$TOKEN" ]; then
-            echo "No GitHub token provided in secrets (STAR_DAEMON_GITHUB_TOKEN / GITHUB_ACCESS_TOKEN / GITHUB_TOKEN). Skipping token permission check.";
+            echo "ℹ️  No custom GitHub token provided (STAR_DAEMON_GITHUB_TOKEN / GITHUB_ACCESS_TOKEN). Skipping token validation.";
+            echo "   The default GITHUB_TOKEN doesn't have /user/starred access, so a custom token is needed for the daemon.";
             exit 0
           fi
+          echo "🔍 Validating custom GitHub token..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token $TOKEN" https://api.github.com/user/starred)
           if [ "$HTTP_STATUS" -eq 200 ]; then
-            echo "GitHub token validation succeeded (HTTP 200).";
+            echo "✅ GitHub token validation succeeded (HTTP 200).";
           else
-            echo "ERROR: GitHub token validation failed (HTTP $HTTP_STATUS). Ensure token is valid and has at least 'public_repo' (classic) or equivalent fine-grained read-only repository access.";
+            echo "❌ ERROR: GitHub token validation failed (HTTP $HTTP_STATUS).";
+            echo "   Ensure token has 'public_repo' (classic) or read-only repository access (fine-grained).";
             exit 1
           fi
 
