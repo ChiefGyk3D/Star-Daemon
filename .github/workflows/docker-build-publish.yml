@@ -125,12 +125,31 @@ jobs:
     - name: Check Docker Hub credentials
       id: check-credentials
       run: |
+        # Debug: Show what we're checking (without revealing actual values)
+        echo "Checking for DOCKER_USERNAME..."
+        if [ -n "${{ secrets.DOCKER_USERNAME }}" ]; then
+          echo "  ✅ DOCKER_USERNAME is set"
+        else
+          echo "  ❌ DOCKER_USERNAME is NOT set"
+        fi
+        
+        echo "Checking for DOCKER_TOKEN..."
+        if [ -n "${{ secrets.DOCKER_TOKEN }}" ]; then
+          echo "  ✅ DOCKER_TOKEN is set"
+        else
+          echo "  ❌ DOCKER_TOKEN is NOT set"
+        fi
+        
+        # Set skip flag if either is missing
         if [ -z "${{ secrets.DOCKER_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_TOKEN }}" ]; then
           echo "skip=true" >> $GITHUB_OUTPUT
-          echo "⚠️ Docker Hub credentials not configured - skipping Docker Hub publish"
+          echo ""
+          echo "⚠️  Docker Hub credentials not configured - skipping Docker Hub publish"
+          echo "    Please add DOCKER_USERNAME and DOCKER_TOKEN to repository secrets"
         else
           echo "skip=false" >> $GITHUB_OUTPUT
-          echo "✅ Docker Hub credentials found"
+          echo ""
+          echo "✅ Docker Hub credentials found - will publish"
         fi
 
     - name: Log in to Docker Hub
