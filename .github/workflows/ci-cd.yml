@@ -90,7 +90,7 @@ jobs:
           # If a tests/ directory or any test_*.py / *_test.py files exist, run pytest.
           if [ -d tests ] || ls -1 test_*.py *_test.py tests/*.py 2>/dev/null; then
             echo "Running pytest..."
-            pytest -q
+            PYTHONPATH=. pytest -v
           else
             echo "No tests found, skipping pytest"
           fi
