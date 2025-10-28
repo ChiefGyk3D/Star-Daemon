@@ -61,5 +61,8 @@ htmlcov/
 # Docker
 ## .dockerignore should be tracked, do not ignore
 
+# env examples
+.env.example
+
 # OS
 Thumbs.db
