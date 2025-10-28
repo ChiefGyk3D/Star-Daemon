@@ -7,10 +7,11 @@ Supports multiple secrets management solutions:
 - Local .env files (fallback)
 """
 
-import os
-import logging
 import json
-from typing import Optional, Dict
+import logging
+import os
+from typing import Dict, Optional
+
 from dotenv import load_dotenv  # Import but don't call yet
 
 logger = logging.getLogger(__name__)

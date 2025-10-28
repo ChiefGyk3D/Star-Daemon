@@ -2,13 +2,15 @@
 BlueSky connector for Star-Daemon with threading and rich embed support
 """
 
-from typing import Dict, Any, Optional
 import logging
 import re
-import requests
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
-from atproto import Client, models, client_utils
+
+import requests
+from atproto import Client, client_utils, models
 from bs4 import BeautifulSoup
+
 from .base import Connector
 
 logger = logging.getLogger(__name__)

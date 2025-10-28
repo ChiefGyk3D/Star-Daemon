@@ -5,11 +5,13 @@ NOTE: Matrix does NOT support editing messages like Discord.
 Messages are posted once and cannot be updated.
 """
 
-from typing import Dict, Any, Optional
 import logging
 import re
+from typing import Any, Dict, Optional
 from urllib.parse import quote, urlparse
+
 import requests
+
 from .base import Connector
 
 logger = logging.getLogger(__name__)

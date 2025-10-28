@@ -3,12 +3,8 @@ def test_smoke_imports():
     Keeps CI meaningful even if there are no user tests yet.
     """
     import config
-    from connectors import (
-        MastodonConnector,
-        BlueSkyConnector,
-        DiscordConnector,
-        MatrixConnector,
-    )
+    from connectors import (BlueSkyConnector, DiscordConnector,
+                            MastodonConnector, MatrixConnector)
 
     assert config is not None
     assert MastodonConnector is not None

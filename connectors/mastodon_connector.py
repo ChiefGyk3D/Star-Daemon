@@ -2,12 +2,14 @@
 Mastodon connector for Star-Daemon
 """
 
-from typing import Dict, Any, Optional
 import logging
 import os
 import tempfile
+from typing import Any, Dict, Optional
+
 import requests
 from mastodon import Mastodon
+
 from .base import Connector
 
 logger = logging.getLogger(__name__)

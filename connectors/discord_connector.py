@@ -2,12 +2,14 @@
 Discord connector for Star-Daemon with rich embeds and message updating
 """
 
-from typing import Dict, Any, Optional
 import logging
 import re
 import time
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
+
 import requests
+
 from .base import Connector
 
 logger = logging.getLogger(__name__)

@@ -6,24 +6,21 @@ Monitors GitHub starred repositories and posts to multiple social platforms
 including Mastodon, BlueSky, Discord, and Matrix.
 """
 
-import time
-import logging
-import sys
-import signal
 import json
+import logging
 import os
+import signal
+import sys
+import time
 from pathlib import Path
 from typing import List, Set
+
 from github import Github
 from github.Repository import Repository
 
 from config import config
-from connectors import (
-    MastodonConnector,
-    BlueSkyConnector,
-    DiscordConnector,
-    MatrixConnector,
-)
+from connectors import (BlueSkyConnector, DiscordConnector, MastodonConnector,
+                        MatrixConnector)
 
 # Configure logging
 logging.basicConfig(
