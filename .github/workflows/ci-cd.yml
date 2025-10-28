@@ -1,0 +1,200 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort
+
+      - name: Run Black
+        run: black --check .
+
+      - name: Run isort
+        run: isort --check-only .
+
+      - name: Run Flake8
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Install testing tools
+          pip install pytest
+
+      - name: Validate Python syntax
+        run: python -m py_compile star-daemon.py config.py connectors/*.py
+
+      - name: Check module structure
+        run: |
+          # Validate that modules can be imported without executing config initialization
+          python -c "import sys; print('Python version:', sys.version)"
+          python -c "import importlib.util; spec = importlib.util.spec_from_file_location('config', 'config.py'); print('config.py module spec found:', spec is not None)"
+
+      - name: Validate GitHub token (if provided)
+        # This step will check that a provided token can authenticate to the GitHub API
+        # and can access the /user/starred endpoint. If no custom token is provided, the step
+        # will skip. The default GITHUB_TOKEN doesn't have starred access.
+        env:
+          TOKEN: ${{ secrets.STAR_DAEMON_GITHUB_TOKEN || secrets.GITHUB_ACCESS_TOKEN || '' }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "ℹ️  No custom GitHub token provided (STAR_DAEMON_GITHUB_TOKEN / GITHUB_ACCESS_TOKEN). Skipping token validation.";
+            echo "   The default GITHUB_TOKEN doesn't have /user/starred access, so a custom token is needed for the daemon.";
+            exit 0
+          fi
+          echo "🔍 Validating custom GitHub token..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token $TOKEN" https://api.github.com/user/starred)
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ GitHub token validation succeeded (HTTP 200).";
+          else
+            echo "❌ ERROR: GitHub token validation failed (HTTP $HTTP_STATUS).";
+            echo "   Ensure token has 'public_repo' (classic) or read-only repository access (fine-grained).";
+            exit 1
+          fi
+
+      - name: Run unit tests (if present)
+        run: |
+          # If a tests/ directory or any test_*.py / *_test.py files exist, run pytest.
+          if [ -d tests ] || ls -1 test_*.py *_test.py tests/*.py 2>/dev/null; then
+            echo "Running pytest..."
+            PYTHONPATH=. pytest -v
+          else
+            echo "No tests found, skipping pytest"
+          fi
+
+  # Commented out: Requires SNYK_TOKEN secret to be configured
+  # To enable: Sign up at snyk.io, connect your repo, and add SNYK_TOKEN to GitHub secrets
+  # security-scan:
+  #   name: Security Scanning
+  #   runs-on: ubuntu-latest
+  #   needs: test
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Run Snyk to check for vulnerabilities
+  #       uses: snyk/actions/python@master
+  #       continue-on-error: true
+  #       env:
+  #         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  #
+  #     - name: Upload Snyk results to GitHub Code Scanning
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       if: always()
+  #       with:
+  #         sarif_file: snyk.sarif
+
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: false
+          load: true
+          tags: star-daemon:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          # Test that Python and modules are properly installed
+          docker run --rm star-daemon:test python -c "import sys; print('Python version:', sys.version)"
+          docker run --rm star-daemon:test python -m py_compile star-daemon.py config.py
+          docker run --rm star-daemon:test sh -c "cd connectors && python -m py_compile *.py"
+
+  docker-publish:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint, test, docker-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/star-daemon
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
