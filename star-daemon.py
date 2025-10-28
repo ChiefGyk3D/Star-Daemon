@@ -19,8 +19,12 @@ from github import Github
 from github.Repository import Repository
 
 from config import config
-from connectors import (BlueSkyConnector, DiscordConnector, MastodonConnector,
-                        MatrixConnector)
+from connectors import (
+    BlueSkyConnector,
+    DiscordConnector,
+    MastodonConnector,
+    MatrixConnector,
+)
 
 # Configure logging
 logging.basicConfig(
