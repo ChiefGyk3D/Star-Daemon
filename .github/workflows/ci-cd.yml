@@ -138,6 +138,7 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: false
+          load: true
           tags: star-daemon:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
