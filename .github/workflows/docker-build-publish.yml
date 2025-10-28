@@ -60,7 +60,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        file: ./Docker/Dockerfile
+        file: ./docker/Dockerfile
         push: false
         load: true
         tags: ${{ steps.meta.outputs.tags }}
@@ -74,7 +74,7 @@ jobs:
         # Use the first tag from the list (should be the branch/PR tag)
         IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
         echo "Testing image: $IMAGE_TAG"
-        docker run --rm "$IMAGE_TAG" python -c "import stream_daemon; print('Import successful')"
+        docker run --rm "$IMAGE_TAG" python -c "import config; print('Import successful')"
 
     - name: Scan image with Trivy
       uses: aquasecurity/trivy-action@master
@@ -96,7 +96,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        file: ./Docker/Dockerfile
+        file: ./docker/Dockerfile
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -142,7 +142,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ secrets.DOCKERHUB_USERNAME }}/stream-daemon
+        images: ${{ secrets.DOCKERHUB_USERNAME }}/star-daemon
         tags: |
           type=ref,event=branch
           type=semver,pattern={{version}}
@@ -155,7 +155,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        file: ./Docker/Dockerfile
+        file: ./docker/Dockerfile
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}

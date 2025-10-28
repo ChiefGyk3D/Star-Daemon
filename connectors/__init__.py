@@ -9,9 +9,9 @@ from .discord_connector import DiscordConnector
 from .matrix_connector import MatrixConnector
 
 __all__ = [
-    'Connector',
-    'MastodonConnector',
-    'BlueSkyConnector',
-    'DiscordConnector',
-    'MatrixConnector'
+    "Connector",
+    "MastodonConnector",
+    "BlueSkyConnector",
+    "DiscordConnector",
+    "MatrixConnector",
 ]
