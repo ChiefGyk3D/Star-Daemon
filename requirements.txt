@@ -40,7 +40,7 @@ aiofiles==25.1.0
 # Secrets Management (Optional - install what you need)
 doppler-sdk==1.3.0  # Doppler
 boto3==1.40.60  # AWS Secrets Manager
-hvac==2.3.0  # HashiCorp Vault
+hvac==2.4.0  # HashiCorp Vault
 
 # Dependencies
 python-dateutil==2.9.0.post0
