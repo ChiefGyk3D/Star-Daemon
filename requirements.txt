@@ -16,7 +16,7 @@ PyGithub==2.8.1
 Mastodon.py==2.1.4
 
 # BlueSky / AT Protocol
-atproto==0.0.63
+atproto==0.0.64
 beautifulsoup4==4.14.2
 
 # Discord
