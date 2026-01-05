@@ -27,7 +27,7 @@ discord-webhook==1.4.1
 # matrix-nio removed - using Matrix Client-Server API directly via requests
 
 # Security and utilities
-certifi==2025.10.5
+certifi==2026.1.4
 urllib3==2.5.0
 charset-normalizer==3.4.4
 idna==3.11
