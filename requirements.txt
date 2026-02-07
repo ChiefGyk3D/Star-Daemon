@@ -28,7 +28,7 @@ discord-webhook==1.4.1
 
 # Security and utilities
 certifi==2026.1.4
-urllib3==2.5.0
+urllib3==2.6.3
 charset-normalizer==3.4.4
 idna==3.11
 protobuf==6.33.5
