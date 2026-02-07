@@ -34,7 +34,7 @@ idna==3.11
 protobuf==6.33.0
 
 # Async support for Matrix
-aiohttp==3.13.1
+aiohttp==3.13.3
 aiofiles==25.1.0
 
 # Secrets Management (Optional - install what you need)
