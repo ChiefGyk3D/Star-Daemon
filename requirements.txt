@@ -31,7 +31,7 @@ certifi==2026.1.4
 urllib3==2.5.0
 charset-normalizer==3.4.4
 idna==3.11
-protobuf==6.33.0
+protobuf==6.33.5
 
 # Async support for Matrix
 aiohttp==3.13.3
