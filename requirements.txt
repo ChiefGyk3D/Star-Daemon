@@ -20,7 +20,7 @@ atproto==0.0.65
 beautifulsoup4==4.14.3
 
 # Discord
-discord.py==2.6.4
+discord.py==2.7.1
 discord-webhook==1.4.1
 
 # Matrix (using requests instead of nio for simpler HTTP-based approach)
