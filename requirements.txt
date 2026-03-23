@@ -10,7 +10,7 @@ python-dotenv==1.2.1
 requests==2.32.5
 
 # GitHub API
-PyGithub==2.8.1
+PyGithub==2.9.0
 
 # Mastodon
 Mastodon.py==2.1.4
