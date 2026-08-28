@@ -211,12 +211,26 @@ class Config:
             self.secrets_manager = env_manager
 
         # Core settings
-        self.check_interval = int(self._get_env("CHECK_INTERVAL", "60"))
+        self.check_interval = int(self._get_env("CHECK_INTERVAL", "300"))
         self.log_level = self._get_env("LOG_LEVEL", "INFO")
+
+        # Path of the JSON state file (default: ~/.star-daemon-state.json)
+        self.state_file = self._get_env("STATE_FILE", "")
+
+        # Full re-enumeration of starred repos every N seconds, to prune
+        # unstarred repositories and heal drift. 0 disables it.
+        self.resync_interval = int(self._get_env("RESYNC_INTERVAL", "86400"))
+
+        # Back off (sleep until the rate-limit window resets) when fewer than
+        # this many requests remain, so the daemon never drains the quota that
+        # other tools using the same token need.
+        self.rate_limit_floor = int(self._get_env("RATE_LIMIT_FLOOR", "100"))
 
         # GitHub
         self.github_token = self._get_env("GITHUB_ACCESS_TOKEN", required=True)
         self.github_username = self._get_env("GITHUB_USERNAME", "")
+        # Override for tests / GitHub Enterprise
+        self.github_api_url = self._get_env("GITHUB_API_URL", "https://api.github.com")
 
         # Mastodon
         self.mastodon_enabled = self._get_bool("MASTODON_ENABLED", False)
@@ -236,8 +250,6 @@ class Config:
         self.discord_role_id = self._get_env(
             "DISCORD_ROLE_ID", ""
         )  # Optional role mention
-        self.discord_bot_token = self._get_env("DISCORD_BOT_TOKEN", "")
-        self.discord_channel_id = self._get_env("DISCORD_CHANNEL_ID", "")
 
         # Matrix
         self.matrix_enabled = self._get_bool("MATRIX_ENABLED", False)
@@ -251,8 +263,6 @@ class Config:
         self.message_template = self._get_env(
             "MESSAGE_TEMPLATE", "I just starred {name} on GitHub: {url}"
         )
-        self.include_description = self._get_bool("INCLUDE_DESCRIPTION", False)
-        self.max_message_length = int(self._get_env("MAX_MESSAGE_LENGTH", "500"))
 
     def _get_env(self, key: str, default: str = "", required: bool = False) -> str:
         """Get environment variable with optional default and required check"""
@@ -295,7 +305,7 @@ class Config:
 
         if not platforms_enabled:
             errors.append(
-                "No platforms enabled. Enable at least one platform (Mastodon, BlueSky, Discord, Matrix, or Twitter)"
+                "No platforms enabled. Enable at least one platform (Mastodon, BlueSky, Discord, or Matrix)"
             )
 
         # Validate platform-specific configuration
@@ -308,11 +318,10 @@ class Config:
                 errors.append("BlueSky enabled but missing required configuration")
 
         if self.discord_enabled:
-            if not self.discord_webhook_url and not (
-                self.discord_bot_token and self.discord_channel_id
-            ):
+            if not self.discord_webhook_url:
                 errors.append(
-                    "Discord enabled but missing webhook URL or bot configuration"
+                    "Discord enabled but DISCORD_WEBHOOK_URL is not set "
+                    "(only webhook posting is supported)"
                 )
 
         if self.matrix_enabled:
