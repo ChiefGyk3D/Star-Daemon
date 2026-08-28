@@ -1,0 +1,20 @@
+# Top-level dependencies for Star-Daemon.
+# Compile to pinned requirements with:
+#   pip-compile requirements.in -o requirements.txt
+# or, with hashes (supply-chain hardening):
+#   pip-compile --generate-hashes requirements.in -o requirements-lock.txt
+
+python-dotenv
+requests
+
+# Mastodon
+Mastodon.py
+
+# BlueSky / AT Protocol
+atproto
+beautifulsoup4
+
+# Secrets management (optional providers)
+doppler-sdk
+boto3
+hvac

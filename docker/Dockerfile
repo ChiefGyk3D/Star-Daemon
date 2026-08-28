@@ -32,9 +32,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy the application files
 COPY star-daemon.py /app/
+COPY star_daemon.py /app/
+COPY github_stars.py /app/
 COPY config.py /app/
 COPY connectors/ /app/connectors/
-COPY .env.example /app/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 stardaemon && \
