@@ -21,7 +21,7 @@ updates:
 
   # Docker dependencies
   - package-ecosystem: "docker"
-    directory: "/Docker"
+    directory: "/docker"
     schedule:
       interval: "weekly"
       day: "monday"
