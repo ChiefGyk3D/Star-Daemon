@@ -25,7 +25,7 @@ Star-Daemon monitors your GitHub starred repositories and automatically posts up
 - **Secure Configuration**: Multiple secrets management options (Doppler, AWS Secrets Manager, HashiCorp Vault, or .env files)
 - **Flexible**: Enable/disable platforms individually
 - **Customizable**: Template-based message formatting with repository name
-- **Reliable**: Automatic retries and error handling
+- **Rate-limit friendly**: One conditional API request per check (304s are free), regardless of how many repos you have starred; backs off automatically when the remaining quota runs low
 - **Lightweight**: Minimal resource usage
 - **Open Source**: Mozilla Public License 2.0 (MPL-2.0) licensed
 
@@ -153,14 +153,17 @@ Or manually:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `CHECK_INTERVAL` | No | 60 | Check interval in seconds |
+| `CHECK_INTERVAL` | No | 300 | Check interval in seconds |
 | `LOG_LEVEL` | No | INFO | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `STATE_FILE` | No | `~/.star-daemon-state.json` | Path of the JSON state file |
+| `RESYNC_INTERVAL` | No | 86400 | Seconds between full re-enumerations of your starred repos (prunes unstars, heals drift); `0` disables |
+| `RATE_LIMIT_FLOOR` | No | 100 | When fewer GitHub API requests than this remain, sleep until the rate-limit window resets instead of polling |
 
 ### GitHub Configuration
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GITHUB_ACCESS_TOKEN` | **Yes** | GitHub Personal Access Token with `repo` and `user` scopes |
+| `GITHUB_ACCESS_TOKEN` | **Yes** | GitHub Personal Access Token. A fine-grained PAT with only the **Starring (read)** account permission is recommended (least privilege); a classic token works too |
 | `GITHUB_USERNAME` | No | Monitor specific user (defaults to authenticated user) |
 
 [How to create a GitHub Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token)
@@ -339,7 +342,7 @@ star-and-toot/
 │   ├── CONTRIBUTING.md
 │   ├── SECURITY.md
 │   ├── MIGRATION.md
-│   ├── CHANGELOG.md
+│   ├── SECRETS_MANAGEMENT.md
 │   ├── QUICKSTART.md
 │   └── SETUP_CHECKLIST.md
 ├── scripts/                   # Helper scripts
@@ -354,7 +357,10 @@ star-and-toot/
 │   ├── bluesky_connector.py
 │   ├── discord_connector.py
 │   └── matrix_connector.py
-├── star-daemon.py             # Main daemon
+├── star-daemon.py             # Entry point (shim)
+├── star_daemon.py             # Main daemon logic
+├── github_stars.py            # GitHub polling (rate-limit aware)
+├── tests/                     # Test suite (pytest)
 ├── config.py                  # Configuration management
 ├── .env.example               # Configuration template
 └── requirements.txt           # Python dependencies
@@ -389,7 +395,7 @@ pip install -r requirements-lock.txt --require-hashes
 A: Enable at least one platform by setting `*_ENABLED=true` in your `.env` file or Doppler
 
 **Q: GitHub rate limiting**  
-A: Increase `CHECK_INTERVAL` to reduce API calls
+A: Each check costs at most one API request (and none at all when nothing changed, via conditional requests). If the quota still runs low - e.g. other tools share the token - the daemon logs a warning and sleeps until the window resets (`RATE_LIMIT_FLOOR`). Watch the remaining quota with `LOG_LEVEL=DEBUG`
 
 **Q: Matrix connection fails**  
 A: Ensure you're using an app password or access token, not your main password
@@ -412,8 +418,20 @@ LOG_LEVEL=DEBUG
 - [CONTRIBUTING.md](docs/CONTRIBUTING.md) - Contribution guidelines
 - [SECURITY.md](docs/SECURITY.md) - Security policy and reporting
 - [MIGRATION.md](docs/MIGRATION.md) - Migration guide from v1.x
-- [CHANGELOG.md](docs/CHANGELOG.md) - Version history
+- [CHANGES.md](CHANGES.md) - Version history
 - [QUICKSTART.md](docs/QUICKSTART.md) - Quick reference guide
+
+## 🧪 Testing
+
+```bash
+pip install -r requirements.txt pytest
+pytest
+```
+
+The suite includes a regression test asserting that a star check costs exactly
+one API request no matter how many repositories are starred (the bug that used
+to exhaust the GitHub rate limit), plus an end-to-end test that runs the real
+daemon against a local fake GitHub/Matrix backend.
 
 ## 🤝 Contributing
 

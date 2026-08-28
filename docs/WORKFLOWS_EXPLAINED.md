@@ -61,22 +61,13 @@ The `.github/workflows/` directory contains **GitHub Actions** workflow files. G
 - Automated security alerts
 - Compliance tracking
 
-### 3. `dependency-update.yml` - Automated Dependency Updates
+### 3. Dependabot - Automated Dependency Updates
 
-**Triggers**: 
-- Every Monday at 6 AM UTC (scheduled)
-- Can be manually triggered
-
-**What it does**:
-- Checks for newer versions of dependencies
-- Creates pull requests with updates
-- Labels PRs as "dependencies" and "automated"
-
-**Benefits**:
-- Keeps dependencies up-to-date
-- Reduces manual maintenance
-- Security patches applied faster
-- Clear changelog of dependency changes
+Dependency updates are handled by Dependabot (`.github/dependabot.yml`), which
+opens weekly PRs for pip packages, the Docker base image, and the pinned
+GitHub Actions. (A separate `dependency-update.yml` workflow used to exist but
+referenced a file that was never committed and duplicated Dependabot, so it
+was removed.)
 
 ## How to Use These Workflows
 
@@ -95,8 +86,8 @@ Some workflows need secrets to function fully. Add these in:
 
 **Optional (only if you want these features):**
 - `SNYK_TOKEN` - For security scanning (requires signing up at snyk.io)
-- `DOCKER_USERNAME` - For Docker Hub publishing (only if you want to publish)
-- `DOCKER_PASSWORD` - For Docker Hub password/token (only if you want to publish)
+- `DOCKERHUB_USERNAME` - For Docker Hub publishing (only if you want to publish)
+- `DOCKERHUB_TOKEN` - Docker Hub access token (only if you want to publish)
 
 > Most users don't need these secrets. The basic workflows run fine without them!
 
