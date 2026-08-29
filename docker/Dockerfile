@@ -33,6 +33,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy the application files
 COPY star-daemon.py /app/
 COPY star_daemon.py /app/
+COPY star_announcer.py /app/
 COPY github_stars.py /app/
 COPY config.py /app/
 COPY connectors/ /app/connectors/

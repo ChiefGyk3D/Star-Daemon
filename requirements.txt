@@ -35,3 +35,7 @@ hvac==2.4.0  # HashiCorp Vault
 # Dependencies
 python-dateutil==2.9.0.post0
 six==1.17.0
+# AI star announcements: shared LLM layer (Ollama + Gemini with guardrails
+# and failover) from the hypeman-social library.
+# TODO: switch to `hypeman-social[ollama,gemini]>=0.1.0` once it's on PyPI.
+hypeman-social[ollama,gemini] @ https://github.com/ChiefGyk3D/hypeman/archive/126c28b5da4901e8ca102955193b71652ec9d348.tar.gz
