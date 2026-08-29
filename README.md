@@ -330,6 +330,44 @@ MESSAGE_TEMPLATE="⭐ Starred {name}: {description}\n{url}"
 MESSAGE_TEMPLATE="🌟 New star: {url}"
 ```
 
+## 🤖 AI Star Announcements (Optional)
+
+Instead of the fixed template, Star-Daemon can ask an LLM to explain what the
+starred project actually *is* — a sentence or two written from the repo's
+name, description, language, and topics. It uses the same shared LLM layer
+([hypeman-social](https://github.com/ChiefGyk3D/hypeman)) as Boon-Tube-Daemon
+and stream-daemon, so a local Ollama server is a first-class citizen:
+
+```bash
+# In .env or Doppler
+LLM_ENABLE=true
+LLM_PROVIDER=ollama
+LLM_OLLAMA_HOST=http://your-ollama-box   # default: http://localhost
+LLM_OLLAMA_PORT=11434
+LLM_OLLAMA_MODEL=gemma3:4b               # or any model Ollama can load
+
+# Optional: fail over to Gemini when the local box is down (opt-in)
+LLM_FALLBACK_PROVIDER=gemini
+GEMINI_API_KEY=your_key_here
+
+# Or use Gemini as the primary instead:
+# LLM_PROVIDER=gemini
+```
+
+Example — starring `sharkdp/bat` posts something like:
+
+> Just starred bat — a modern take on cat written in Rust, with syntax
+> highlighting and git integration baked in. My terminal thanks me.
+>
+> https://github.com/sharkdp/bat
+
+Honesty guardrails are built in: the model only sees the repo's real
+metadata, and any message containing an invented star count, version number,
+"trending", or similar fabrication is rejected. When the LLM is disabled,
+unreachable, or its message fails validation, the daemon simply posts your
+`MESSAGE_TEMPLATE` instead — a star is never left unannounced because the AI
+box is down, and the connection heals automatically when it returns.
+
 ## 🏗️ Project Structure
 
 ```

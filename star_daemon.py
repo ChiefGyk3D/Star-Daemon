@@ -25,6 +25,7 @@ from connectors import (
     MatrixConnector,
 )
 from github_stars import RateLimitError, StarWatcher
+from star_announcer import StarAnnouncer
 
 # Configure logging
 logging.basicConfig(
@@ -45,6 +46,7 @@ class StarDaemon:
         self.watcher: Optional[StarWatcher] = None
         self.starred_repos: Set[str] = set()
         self.connectors = []
+        self.announcer: Optional[StarAnnouncer] = None
         self.running = True
         self.state_file = Path(state_file or config.state_file or DEFAULT_STATE_FILE)
         self._last_resync = time.time()
@@ -90,6 +92,14 @@ class StarDaemon:
 
             # Initialize connectors
             self._initialize_connectors()
+
+            # Optional AI announcements (LLM_ENABLE + LLM_PROVIDER config).
+            # When disabled or the server is down, posts use MESSAGE_TEMPLATE.
+            self.announcer = StarAnnouncer()
+            if self.announcer.initialize():
+                logger.info("AI star announcements enabled")
+            else:
+                logger.info("AI star announcements disabled (using message template)")
 
             return True
         except RateLimitError as e:
@@ -207,23 +217,29 @@ class StarDaemon:
             owner = repo.get("owner") or {}
             description = repo.get("description")
 
-            # Build message
-            message = config.message_template.format(
-                url=repo.get("html_url"),
-                name=repo.get("full_name"),
-                description=description or "No description",
-            )
-
             # Prepare repository data for rich embeds
             repo_data = {
                 "full_name": repo.get("full_name"),
                 "name": repo.get("name"),
                 "description": description,
                 "language": repo.get("language"),
+                "topics": repo.get("topics") or [],
                 "stargazers_count": repo.get("stargazers_count"),
                 "forks_count": repo.get("forks_count"),
                 "owner": {"avatar_url": owner.get("avatar_url")},
             }
+
+            # Build message: AI explanation of what the project is when the
+            # LLM is up, the configured template otherwise.
+            message = None
+            if self.announcer is not None:
+                message = self.announcer.compose(repo_data, repo.get("html_url"))
+            if not message:
+                message = config.message_template.format(
+                    url=repo.get("html_url"),
+                    name=repo.get("full_name"),
+                    description=description or "No description",
+                )
 
             # Prepare metadata with repo_data for connectors
             metadata = {
