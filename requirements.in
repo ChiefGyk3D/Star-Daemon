@@ -22,4 +22,4 @@ hvac
 # Shared LLM layer (Ollama + Gemini with guardrails and failover), from the
 # hypeman-social library used across ChiefGyk3D's daemons.
 # TODO: switch to `hypeman-social[ollama,gemini]>=0.1.0` once it's on PyPI.
-hypeman-social[ollama,gemini] @ https://github.com/ChiefGyk3D/hypeman/archive/refs/heads/claude/hypeman-library-extraction-46rmfh.tar.gz
+hypeman-social[ollama,gemini] @ https://github.com/ChiefGyk3D/hypeman/archive/126c28b5da4901e8ca102955193b71652ec9d348.tar.gz
