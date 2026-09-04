@@ -368,6 +368,10 @@ unreachable, or its message fails validation, the daemon simply posts your
 `MESSAGE_TEMPLATE` instead — a star is never left unannounced because the AI
 box is down, and the connection heals automatically when it returns.
 
+Every LLM key (guardrail tuning, retries, thinking mode for reasoning models,
+and more) is documented in the
+[hypeman-social configuration reference](https://github.com/ChiefGyk3D/hypeman/blob/main/docs/CONFIGURATION.md).
+
 ## 🏗️ Project Structure
 
 ```
