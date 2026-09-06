@@ -58,7 +58,7 @@ jobs:
           pip install pytest
 
       - name: Validate Python syntax
-        run: python -m py_compile star-daemon.py star_daemon.py star_announcer.py github_stars.py config.py connectors/*.py tests/*.py
+        run: python -m py_compile star-daemon.py star_daemon.py star_announcer.py github_stars.py config.py platforms.py tests/*.py
 
       - name: Run test suite
         run: pytest -v
@@ -88,7 +88,7 @@ jobs:
       - name: Test Docker image
         run: |
           # Test that Python modules are syntactically valid without requiring env vars
-          docker run --rm star-daemon:test sh -c "python -m py_compile /app/star-daemon.py /app/star_daemon.py /app/star_announcer.py /app/github_stars.py /app/config.py /app/connectors/*.py"
+          docker run --rm star-daemon:test sh -c "python -m py_compile /app/star-daemon.py /app/star_daemon.py /app/star_announcer.py /app/github_stars.py /app/config.py /app/platforms.py"
 
   # Docker publishing is handled by docker-build-publish.yml workflow
   # which publishes to both GitHub Container Registry (ghcr.io) and Docker Hub
