@@ -37,4 +37,7 @@ python-dateutil==2.9.0.post0
 six==1.17.0
 # AI star announcements: shared LLM layer (Ollama + Gemini with guardrails
 # and failover) from the hypeman-social library.
-hypeman-social[ollama,gemini]>=0.1.0,<0.2
+# TEMPORARY: pinned to the hypeman 0.2.0 merge commit until v0.2.0 is on
+# PyPI (the maintainer publishes the GitHub release; Trusted Publishing does
+# the rest). Swap back to: hypeman-social[bluesky,mastodon,ollama,gemini]>=0.2.0,<0.3
+hypeman-social[bluesky,mastodon,ollama,gemini] @ https://github.com/ChiefGyk3D/hypeman/archive/60345d51254275ffcfb905d9d460d9324735f255.tar.gz

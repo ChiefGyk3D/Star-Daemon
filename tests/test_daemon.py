@@ -5,8 +5,8 @@ import json
 import pytest
 
 import star_daemon
-from connectors.base import Connector
 from github_stars import StarWatcher
+from platforms import Connector
 from star_daemon import StarDaemon
 from tests.fake_github import FakeGitHubAPI
 

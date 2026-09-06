@@ -121,7 +121,7 @@ Use this checklist to ensure everything is properly configured after the overhau
 
 ## 🧪 Testing Checklist
 
-- [ ] All Python files compile: `python -m py_compile *.py connectors/*.py`
+- [ ] All Python files compile: `python -m py_compile *.py`
 - [ ] Configuration loads without errors
 - [ ] All enabled connectors initialize successfully
 - [ ] Connection tests pass for all platforms
@@ -188,7 +188,7 @@ Use this checklist to ensure everything is properly configured after the overhau
 - [ ] Add monitoring/alerting (e.g., Prometheus, Grafana)
 - [ ] Set up log aggregation (e.g., ELK stack)
 - [ ] Create custom Docker image and publish
-- [ ] Add more platforms (create custom connectors)
+- [ ] Add more platforms (contribute a platform to [hypeman-social](https://github.com/ChiefGyk3D/hypeman) — Star-Daemon picks it up automatically)
 - [ ] Contribute improvements back to project
 
 ## 🐛 Troubleshooting Reference

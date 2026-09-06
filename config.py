@@ -251,6 +251,11 @@ class Config:
             "DISCORD_ROLE_ID", ""
         )  # Optional role mention
 
+        # Threads (Meta) — via hypeman-social's ThreadsPlatform
+        self.threads_enabled = self._get_bool("THREADS_ENABLED", False)
+        self.threads_access_token = self._get_env("THREADS_ACCESS_TOKEN", "")
+        self.threads_user_id = self._get_env("THREADS_USER_ID", "")
+
         # Matrix
         self.matrix_enabled = self._get_bool("MATRIX_ENABLED", False)
         self.matrix_homeserver = self._get_env("MATRIX_HOMESERVER", "")
@@ -263,6 +268,10 @@ class Config:
         self.message_template = self._get_env(
             "MESSAGE_TEMPLATE", "I just starred {name} on GitHub: {url}"
         )
+
+        # Health endpoint (0 = disabled). Serves /healthz and /status via
+        # hypeman-social's observability module; binds to 127.0.0.1.
+        self.health_port = int(self._get_env("HEALTH_PORT", "0"))
 
     def _get_env(self, key: str, default: str = "", required: bool = False) -> str:
         """Get environment variable with optional default and required check"""
@@ -300,12 +309,14 @@ class Config:
                 self.bluesky_enabled,
                 self.discord_enabled,
                 self.matrix_enabled,
+                self.threads_enabled,
             ]
         )
 
         if not platforms_enabled:
             errors.append(
-                "No platforms enabled. Enable at least one platform (Mastodon, BlueSky, Discord, or Matrix)"
+                "No platforms enabled. Enable at least one platform "
+                "(Mastodon, BlueSky, Discord, Matrix, or Threads)"
             )
 
         # Validate platform-specific configuration
@@ -322,6 +333,12 @@ class Config:
                 errors.append(
                     "Discord enabled but DISCORD_WEBHOOK_URL is not set "
                     "(only webhook posting is supported)"
+                )
+
+        if self.threads_enabled:
+            if not all([self.threads_access_token, self.threads_user_id]):
+                errors.append(
+                    "Threads enabled but missing THREADS_ACCESS_TOKEN or THREADS_USER_ID"
                 )
 
         if self.matrix_enabled:

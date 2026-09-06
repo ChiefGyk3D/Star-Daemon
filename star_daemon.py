@@ -17,14 +17,11 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Set
 
+from hypeman_social.observability import HealthState, start_health_server
+
 from config import config
-from connectors import (
-    BlueSkyConnector,
-    DiscordConnector,
-    MastodonConnector,
-    MatrixConnector,
-)
 from github_stars import RateLimitError, StarWatcher
+from platforms import build_connectors
 from star_announcer import StarAnnouncer
 
 # Configure logging
@@ -50,6 +47,8 @@ class StarDaemon:
         self.running = True
         self.state_file = Path(state_file or config.state_file or DEFAULT_STATE_FILE)
         self._last_resync = time.time()
+        self.health = HealthState("star-daemon")
+        self._health_server = None
 
     def initialize(self) -> bool:
         """Initialize GitHub polling and connectors"""
@@ -90,8 +89,11 @@ class StarDaemon:
                     f"Loaded {len(self.starred_repos)} previously tracked repositories from state file"
                 )
 
-            # Initialize connectors
-            self._initialize_connectors()
+            # Initialize social platforms (hypeman-social, via the env bridge
+            # that keeps Star-Daemon's historical variable names working).
+            self.connectors = build_connectors(config)
+            for connector in self.connectors:
+                self.health.set_component(connector.name, True)
 
             # Optional AI announcements (LLM_ENABLE + LLM_PROVIDER config).
             # When disabled or the server is down, posts use MESSAGE_TEMPLATE.
@@ -100,6 +102,15 @@ class StarDaemon:
                 logger.info("AI star announcements enabled")
             else:
                 logger.info("AI star announcements disabled (using message template)")
+            self.health.register("llm", self.announcer.status)
+
+            # Optional health endpoint: /healthz and /status on 127.0.0.1.
+            # A downed LLM reports degraded, not unhealthy — template posts
+            # still go out, and a health check that cries wolf gets ignored.
+            if config.health_port:
+                self._health_server = start_health_server(
+                    self.health, config.health_port
+                )
 
             return True
         except RateLimitError as e:
@@ -109,54 +120,9 @@ class StarDaemon:
             logger.error(f"Initialization failed: {e}", exc_info=True)
             return False
 
-    def _initialize_connectors(self):
-        """Initialize all enabled platform connectors"""
-        # Mastodon
-        if config.mastodon_enabled:
-            connector = MastodonConnector(
-                api_base_url=config.mastodon_api_base_url,
-                client_id=config.mastodon_client_id,
-                client_secret=config.mastodon_client_secret,
-                access_token=config.mastodon_access_token,
-            )
-            if connector.initialize() and connector.test_connection():
-                self.connectors.append(connector)
-
-        # BlueSky
-        if config.bluesky_enabled:
-            connector = BlueSkyConnector(
-                handle=config.bluesky_handle, app_password=config.bluesky_app_password
-            )
-            if connector.initialize() and connector.test_connection():
-                self.connectors.append(connector)
-
-        # Discord
-        if config.discord_enabled:
-            connector = DiscordConnector(
-                webhook_url=config.discord_webhook_url,
-                role_id=getattr(
-                    config, "discord_role_id", None
-                ),  # Optional role mention
-            )
-            if connector.initialize() and connector.test_connection():
-                self.connectors.append(connector)
-
-        # Matrix
-        if config.matrix_enabled:
-            connector = MatrixConnector(
-                homeserver=config.matrix_homeserver,
-                room_id=config.matrix_room_id,
-                user_id=config.matrix_user_id,
-                password=config.matrix_password,
-                access_token=config.matrix_access_token,
-            )
-            if connector.initialize() and connector.test_connection():
-                self.connectors.append(connector)
-
-        logger.info(f"Initialized {len(self.connectors)} platform connector(s)")
-
     def check_new_stars(self):
         """Check for newly starred repositories (one API request, usually free)"""
+        self.health.record_event("last_check")
         try:
             new_repos = self.watcher.fetch_new_starred(self.starred_repos)
         except RateLimitError as e:
@@ -262,8 +228,10 @@ class StarDaemon:
                     success = connector.safe_post(message, metadata)
                     if success:
                         logger.info(f"Successfully posted to {connector.name}")
+                        self.health.record_event("last_post", repo.get("full_name"))
                     else:
                         logger.warning(f"Failed to post to {connector.name}")
+                    self.health.set_component(connector.name, success)
                 except Exception as e:
                     logger.error(f"Error posting to {connector.name}: {e}")
 
