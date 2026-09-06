@@ -19,8 +19,8 @@ Star-Daemon monitors your GitHub starred repositories and automatically posts up
 
 ## 🚀 Features
 
-- **Multi-Platform Support**: Post to Mastodon, BlueSky, Discord, and Matrix simultaneously
-- **Rich Formatting**: Mastodon posts now include repository metadata (stars, language, description) like BlueSky
+- **Multi-Platform Support**: Post to Mastodon, BlueSky, Discord, Matrix, and Threads simultaneously — via the shared [hypeman-social](https://github.com/ChiefGyk3D/hypeman) library, so every network the library grows arrives here for free
+- **Rich Formatting**: repository embeds and cards on every platform — Discord gets a rich embed with stars/language/forks fields and the owner's avatar, BlueSky an API-metadata link card, Mastodon a text card with the avatar attached, Matrix HTML with repository details
 - **Dockerized**: Easy deployment with Docker and Docker Compose
 - **Secure Configuration**: Multiple secrets management options (Doppler, AWS Secrets Manager, HashiCorp Vault, or .env files)
 - **Flexible**: Enable/disable platforms individually
@@ -158,6 +158,7 @@ Or manually:
 | `STATE_FILE` | No | `~/.star-daemon-state.json` | Path of the JSON state file |
 | `RESYNC_INTERVAL` | No | 86400 | Seconds between full re-enumerations of your starred repos (prunes unstars, heals drift); `0` disables |
 | `RATE_LIMIT_FLOOR` | No | 100 | When fewer GitHub API requests than this remain, sleep until the rate-limit window resets instead of polling |
+| `HEALTH_PORT` | No | 0 (off) | Serve `/healthz` and `/status` on this port (binds to `127.0.0.1`) |
 
 ### GitHub Configuration
 
@@ -221,6 +222,35 @@ Or manually:
 
 *Required if Matrix is enabled  
 **Either password or access token required
+
+#### Threads
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `THREADS_ENABLED` | No | Set to `true` to enable |
+| `THREADS_ACCESS_TOKEN` | Yes* | Long-lived Threads Graph API token (`threads_basic` + `threads_content_publish`) |
+| `THREADS_USER_ID` | Yes* | Numeric Threads user ID |
+
+*Required if Threads is enabled. Credential walkthrough: [hypeman-social configuration reference](https://github.com/ChiefGyk3D/hypeman/blob/main/docs/CONFIGURATION.md#social-threads).
+
+> **Naming note**: platform posting is implemented by
+> [hypeman-social](https://github.com/ChiefGyk3D/hypeman). Star-Daemon's
+> historical variable names (`MASTODON_ENABLED`, `MATRIX_USER_ID`,
+> `DISCORD_ROLE_ID`, ...) keep working — the daemon translates them to the
+> library's names (`MASTODON_ENABLE_POSTING`, `MATRIX_USERNAME`,
+> `DISCORD_ROLE`) at startup, and an explicitly set library-style name always
+> wins over the translation.
+
+### Health Endpoint (Optional)
+
+Set `HEALTH_PORT` to expose the daemon's health over HTTP (localhost only):
+
+- `GET /healthz` — 200 while every initialized platform is working, 503 when one is broken
+- `GET /status` — full detail: platforms, LLM provider state, last check, last post, uptime
+
+A downed AI server reports as **degraded, not unhealthy** — announcements
+still go out from `MESSAGE_TEMPLATE`. The Docker image ships a matching
+`HEALTHCHECK` that probes `/healthz` when `HEALTH_PORT` is set.
 
 ### Secrets Management (Optional)
 
@@ -393,12 +423,7 @@ star-and-toot/
 │   ├── uninstall-systemd.sh   # systemd service uninstaller
 │   └── setup_matrix_bot.sh    # Matrix bot setup helper
 ├── .github/workflows/         # CI/CD automation
-├── connectors/                # Platform connectors
-│   ├── base.py
-│   ├── mastodon_connector.py
-│   ├── bluesky_connector.py
-│   ├── discord_connector.py
-│   └── matrix_connector.py
+├── platforms.py               # Social platform wiring (hypeman-social)
 ├── star-daemon.py             # Entry point (shim)
 ├── star_daemon.py             # Main daemon logic
 ├── github_stars.py            # GitHub polling (rate-limit aware)
@@ -410,7 +435,7 @@ star-and-toot/
 
 ### Architecture
 
-Star-Daemon uses a modular connector architecture where each platform is independent and can be enabled/disabled via configuration. The `.github/workflows/` folder contains GitHub Actions for automated testing and Docker builds.
+Star-Daemon builds one connector per platform from hypeman-social's registry (`platforms.py`); each platform is independent and can be enabled/disabled via configuration. The `.github/workflows/` folder contains GitHub Actions for automated testing and Docker builds.
 
 ## 🔒 Security
 

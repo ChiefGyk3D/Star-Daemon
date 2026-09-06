@@ -36,7 +36,7 @@ COPY star_daemon.py /app/
 COPY star_announcer.py /app/
 COPY github_stars.py /app/
 COPY config.py /app/
-COPY connectors/ /app/connectors/
+COPY platforms.py /app/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 stardaemon && \
@@ -48,6 +48,13 @@ USER stardaemon
 
 # Set home directory for state file persistence
 ENV HOME=/home/stardaemon
+
+# Liveness probe against the daemon's /healthz endpoint (hypeman-social
+# observability). Only meaningful when HEALTH_PORT is set; without it the
+# check passes trivially so the container isn't marked unhealthy for
+# choosing not to expose health. Uses urllib because slim images ship no curl.
+HEALTHCHECK --interval=60s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["python", "-c", "import os,sys,urllib.request;port=os.getenv('HEALTH_PORT');sys.exit(0) if not port else urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=4)"]
 
 # Run the application
 CMD ["python", "star-daemon.py"]

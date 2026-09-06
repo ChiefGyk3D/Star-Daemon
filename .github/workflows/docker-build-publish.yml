@@ -76,8 +76,9 @@ jobs:
         echo "Testing image: $IMAGE_TAG"
         # Just validate Python syntax and imports without executing config
         docker run --rm "$IMAGE_TAG" python -c "import sys; print('Python version:', sys.version); print('Import test successful')"
-        docker run --rm "$IMAGE_TAG" python -m py_compile star-daemon.py star_daemon.py star_announcer.py github_stars.py config.py
-        docker run --rm "$IMAGE_TAG" sh -c "cd connectors && python -m py_compile *.py"
+        docker run --rm "$IMAGE_TAG" python -m py_compile star-daemon.py star_daemon.py star_announcer.py github_stars.py config.py platforms.py
+        # Smoke-import the shared library the platforms are built on
+        docker run --rm "$IMAGE_TAG" python -c "import hypeman_social.social, hypeman_social.observability; print('hypeman-social import successful')"
 
     - name: Scan image with Trivy
       uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
