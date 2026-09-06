@@ -24,7 +24,7 @@ beautifulsoup4==4.14.3
 # Security and utilities
 certifi==2026.1.4
 urllib3==2.6.3
-charset-normalizer==3.4.4
+charset-normalizer==3.4.7
 idna==3.11
 
 # Secrets Management (Optional - install what you need)
