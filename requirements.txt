@@ -7,7 +7,7 @@
 
 # Core dependencies
 python-dotenv==1.2.1
-requests==2.32.5
+requests==2.33.0
 
 # Mastodon
 Mastodon.py==2.1.4
