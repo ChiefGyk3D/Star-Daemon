@@ -28,9 +28,17 @@ ENV PYTHONUNBUFFERED=1 \
 # Copy requirements first for better caching
 COPY requirements.txt /app/
 
-# Install Python dependencies
+# Install Python dependencies, then drop pip from the runtime image. Nothing
+# installs packages at runtime, and pip's vendored copies of msgpack 1.1.2
+# (GHSA-6v7p-g79w-8964) and pkg_resources from setuptools 70.3.0
+# (CVE-2025-47273, CVE-2026-59890) are what Trivy reports as the image's
+# Python-level findings; the current pip still vendors those versions, so
+# upgrading it does not clear them. Both the venv's pip and the interpreter's
+# own copy go.
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip uninstall -y pip && \
+    /usr/local/bin/python -m pip uninstall -y pip
 
 # Copy the application files
 COPY star-daemon.py /app/
