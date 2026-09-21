@@ -36,7 +36,7 @@ COPY requirements.txt /app/
 # upgrading it does not clear them. Both the venv's pip and the interpreter's
 # own copy go.
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir --require-hashes -r requirements.txt && \
     pip uninstall -y pip && \
     /usr/local/bin/python -m pip uninstall -y pip
 

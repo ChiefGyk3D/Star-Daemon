@@ -1,8 +1,11 @@
-# Top-level dependencies for Star-Daemon.
-# Compile to pinned requirements with:
-#   pip-compile requirements.in -o requirements.txt
-# or, with hashes (supply-chain hardening):
-#   pip-compile --generate-hashes requirements.in -o requirements-lock.txt
+# Direct dependencies. requirements.txt is generated from this file with every transitive
+# dependency pinned and hashed; regenerate it after editing here:
+#
+#   pip install uv
+#   uv pip compile requirements.in --universal --generate-hashes --python-version 3.11 -o requirements.txt
+#
+# pip enters hash-checking mode by itself when it reads requirements.txt, so
+# `pip install -r requirements.txt` verifies every download against the lock.
 
 python-dotenv
 requests

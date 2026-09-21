@@ -441,18 +441,19 @@ Star-Daemon builds one connector per platform from hypeman-social's registry (`p
 
 - **Secrets Management**: Multiple options - Doppler, AWS Secrets Manager, HashiCorp Vault, or `.env` files
 - **Container Security**: Non-root user in Docker
-- **Pinned Dependencies**: Locked versions in `requirements.txt`
-- **Hash Verification**: Support for `pip install --require-hashes`
+- **Pinned Dependencies**: `requirements.txt` is a generated lock with every dependency, transitive ones included, pinned to a version and its SHA-256 hashes
+- **Hash Verification**: pip verifies every download against the lock; CI and the Docker image install with `--require-hashes`
 
-### Generating Locked Requirements with Hashes
+### Regenerating the lock
 
-For maximum security:
+`requirements.in` lists the direct dependencies. After editing it:
 
 ```bash
-pip install pip-tools
-pip-compile --generate-hashes requirements.in -o requirements-lock.txt
-pip install -r requirements-lock.txt --require-hashes
+pip install uv
+uv pip compile requirements.in --universal --generate-hashes --python-version 3.11 -o requirements.txt
 ```
+
+Dependabot regenerates the lock for version bumps.
 
 ## 🐛 Troubleshooting
 
