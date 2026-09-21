@@ -60,6 +60,8 @@ htmlcov/
 
 # Docker
 ## .dockerignore should be tracked, do not ignore
+docker-compose.override.yml
+docker/docker-compose.override.yml
 
 # env examples
 .env.example
