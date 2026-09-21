@@ -1,0 +1,48 @@
+# Lint (black, isort, flake8), tests on Python 3.11-3.13, Docker build. The
+# jobs live in ChiefGyk3D/git-your-ship-together; this file only says what is
+# specific to Star Daemon.
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-ci.yml@d5d9556afeeb06f78419b91ecb5d146e789c6d51 # v1.0.0
+    permissions:
+      contents: read
+      id-token: write   # Doppler OIDC (see the reusable workflow's README)
+    secrets:
+      DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}   # optional Service Token fallback; unset means OIDC only
+    with:
+      python-versions: '["3.11", "3.12", "3.13"]'
+      coverage-python-version: "3.13"
+      install-command: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+      test-command: |
+        python -m py_compile star-daemon.py star_daemon.py star_announcer.py github_stars.py config.py platforms.py tests/*.py
+        pytest -v
+      lint-install-command: pip install flake8 black isort
+      lint-command: |
+        black --check .
+        isort --check-only .
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      dockerfile: docker/Dockerfile
+      # Python modules must be syntactically valid without requiring env vars
+      docker-test-command: docker run --rm "$IMAGE" sh -c "python -m py_compile /app/star-daemon.py /app/star_daemon.py /app/star_announcer.py /app/github_stars.py /app/config.py /app/platforms.py"
+      doppler-project: star-daemon
+      doppler-config: ci
+      doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}

@@ -15,142 +15,97 @@ The `.github/workflows/` directory contains **GitHub Actions** workflow files. G
 
 ## What Do Star-Daemon's Workflows Do?
 
-### 1. `ci-cd.yml` - Main CI/CD Pipeline
+The three files in `.github/workflows/` are thin callers. The jobs themselves
+live in [ChiefGyk3D/git-your-ship-together](https://github.com/ChiefGyk3D/git-your-ship-together),
+shared with Typo Sniper, Stream Daemon and Boon Tube Daemon, so a pipeline fix
+or a new scan step lands once. Each caller says only what is specific to
+Star-Daemon: Python versions, the lint and test commands, the Dockerfile path,
+the Doppler project.
 
-**Triggers**: Every push and pull request to `main` or `develop` branches
+### 1. `ci.yml` - CI
+
+**Triggers**: Every push and pull request to `main` or `develop`, manual runs
 
 **What it does**:
-- **Linting**: Checks code style with Black, isort, and Flake8
-- **Testing**: Validates Python syntax and imports
-- **Docker Build**: Tests that Docker image builds correctly
-- **Docker Publish**: Publishes to Docker Hub (only on main branch)
-- **Dependency Review**: Checks for security issues in PRs
+- **Linting**: Black, isort and Flake8
+- **Testing**: `py_compile` over every module, then `pytest` on Python 3.11, 3.12 and 3.13
+- **Docker Build**: Builds the image and checks its modules compile
+- **CI green**: One gate job that fails if any of the above failed; point branch protection at it
 
-> **Note**: Security scanning with Snyk is commented out by default. To enable it, you need to:
-> 1. Sign up at https://snyk.io (free for open source)
-> 2. Connect your GitHub repository
-> 3. Add `SNYK_TOKEN` to your repository secrets
-> 4. Uncomment the security-scan job in `.github/workflows/ci-cd.yml`
+### 2. `release.yml` - Container release
 
-**Benefits**:
-- Catches syntax errors before deployment
-- Ensures consistent code formatting
-- Verifies Docker builds work
-- Can be extended with Snyk for security scanning (optional)
+**Triggers**: Push to `main`, `v*.*.*` tags, pull requests, manual runs
 
-### 2. ~~snyk.yml - Weekly Security Scanning~~ (Optional - Not Included)
+**What it does**:
+- On every pull request: build, test, scan with Trivy (results in the Security tab)
+- On `main` and tags: publish a multi-arch (amd64 + arm64) image to `ghcr.io/chiefgyk3d/star-daemon` and to Docker Hub
+- Sign the image with cosign (keyless), attach a syft SPDX SBOM, record SLSA build provenance
 
-> **Note**: Snyk integration is **optional** and requires manual setup. The workflow file is not included by default.
+Verify a published image:
 
-**If you want to add Snyk scanning:**
+```sh
+cosign verify ghcr.io/chiefgyk3d/star-daemon:latest \
+  --certificate-identity-regexp '^https://github.com/ChiefGyk3D/git-your-ship-together/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
 
-1. Sign up at https://snyk.io (free for open source)
-2. Connect your GitHub repository to Snyk
-3. Get your Snyk token
-4. Add `SNYK_TOKEN` to repository secrets
-5. Uncomment the security-scan job in `ci-cd.yml` or create a separate `snyk.yml` workflow
+### 3. `security.yml` - Security
 
-**What it would do** (if enabled):
-- Scans all dependencies for known vulnerabilities
-- Uploads results to GitHub Security tab
-- Monitors project continuously in Snyk dashboard
+**Triggers**: Push and pull requests to `main` or `develop`, weekly on Monday, manual runs
 
-**Benefits**:
-- Proactive security monitoring
-- Early warning of vulnerable dependencies
-- Automated security alerts
-- Compliance tracking
+**What it does**:
+- **CodeQL**: Static analysis, findings in the Security tab
+- **gitleaks**: Secret scan over the full git history
+- **pip-audit**: Known vulnerabilities in `requirements.txt`
+- **Dependency Review**: What a pull request's dependency changes bring in
 
-### 3. Dependabot - Automated Dependency Updates
+## Secrets: Doppler, not GitHub
 
-Dependency updates are handled by Dependabot (`.github/dependabot.yml`), which
-opens weekly PRs for pip packages, the Docker base image, and the pinned
-GitHub Actions. (A separate `dependency-update.yml` workflow used to exist but
-referenced a file that was never committed and duplicated Dependabot, so it
-was removed.)
+Nothing is stored in this repository's GitHub secrets. A job authenticates to
+Doppler with a short-lived token minted from its own GitHub OIDC identity (a
+Doppler Service Account Identity) and reads the `ci` config of the
+`star-daemon` project. For Star-Daemon that config holds:
 
-## How to Use These Workflows
+- `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` - Docker Hub publishing
 
-### 1. Enable GitHub Actions
+The one per-repository setting is the **repository variable**
+`DOPPLER_IDENTITY_ID` (Settings → Secrets and variables → Actions →
+Variables): the UUID of the identity. It is an identifier, not a secret.
 
-GitHub Actions are automatically enabled for most repositories. To verify:
+Until it is set, the pipelines still run: Docker Hub publishing skips with a
+notice, and GHCR publishing works regardless because it uses the job's own
+`GITHUB_TOKEN`. The setup runbook and the fallback path (a Doppler Service
+Token as the single GitHub secret `DOPPLER_TOKEN`) are in the
+git-your-ship-together README.
+
+## How to Check They're Working
 
 1. Go to your repository on GitHub
 2. Click the "Actions" tab
-3. You should see the workflows listed
+3. You should see CI, Release and Security listed
 
-### 2. Required Secrets
+## Monitoring Workflow Runs
 
-Some workflows need secrets to function fully. Add these in:
-**Settings → Secrets and variables → Actions → New repository secret**
-
-**Optional (only if you want these features):**
-- `SNYK_TOKEN` - For security scanning (requires signing up at snyk.io)
-- `DOCKERHUB_USERNAME` - For Docker Hub publishing (only if you want to publish)
-- `DOCKERHUB_TOKEN` - Docker Hub access token (only if you want to publish)
-
-> Most users don't need these secrets. The basic workflows run fine without them!
-
-### 3. Monitoring Workflow Runs
-
-1. Go to the "Actions" tab in your repository
-2. Click on any workflow to see its runs
-3. Click on a specific run to see detailed logs
-4. Green checkmark ✅ = passed, Red X ❌ = failed
-
-### 4. Viewing Security Results
-
-Security scan results appear in:
-1. **Security tab** → Code scanning alerts
-2. **Pull request checks** (if running on PR)
-3. **Snyk dashboard** (if you've connected your account)
+1. Click on any workflow to see its runs
+2. Click on a specific run to see detailed logs
+3. Green checkmark ✅ = passed, Red X ❌ = failed
+4. Security findings (CodeQL, Trivy) are under the "Security" tab
 
 ## Customizing Workflows
 
-### Change Schedule Times
-
-Edit the cron expression in the workflow file:
-
-```yaml
-on:
-  schedule:
-    - cron: '0 9 * * 1'  # Monday at 9 AM UTC
-```
-
-Use [crontab.guru](https://crontab.guru/) to help create cron expressions.
-
-### Disable a Workflow
-
-Three options:
-
-1. **Delete the file** from `.github/workflows/`
-2. **Disable in GitHub**: Actions tab → Select workflow → "..." → Disable workflow
-3. **Comment out triggers** in the workflow file
-
-### Modify What Gets Tested
-
-Edit the workflow file directly:
-
-```yaml
-jobs:
-  lint:
-    name: Lint Code
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      # Add, remove, or modify steps here
-```
+Everything Star-Daemon-specific is a `with:` input in the caller, for
+example the Python versions or the test command. Everything shared - the
+steps, the pinned action versions, the signing - is in git-your-ship-together,
+and a change there applies to every caller on its next run.
 
 ## Understanding Workflow Status
 
 ### Badges
 
-Add status badges to your README:
-
 ```markdown
-[![CI/CD](https://github.com/ChiefGyk3D/Star-Daemon/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ChiefGyk3D/Star-Daemon/actions/workflows/ci-cd.yml)
+[![CI](https://github.com/ChiefGyk3D/Star-Daemon/actions/workflows/ci.yml/badge.svg)](https://github.com/ChiefGyk3D/Star-Daemon/actions/workflows/ci.yml)
+[![Release](https://github.com/ChiefGyk3D/Star-Daemon/actions/workflows/release.yml/badge.svg)](https://github.com/ChiefGyk3D/Star-Daemon/actions/workflows/release.yml)
+[![Security](https://github.com/ChiefGyk3D/Star-Daemon/actions/workflows/security.yml/badge.svg)](https://github.com/ChiefGyk3D/Star-Daemon/actions/workflows/security.yml)
 ```
 
 ### Common Issues
@@ -160,14 +115,9 @@ Add status badges to your README:
 - Most common: Linting errors or failing tests
 - Fix locally and push again
 
-**"Snyk token not found"**
-- This is expected! Snyk is optional and not configured by default
-- Either add `SNYK_TOKEN` to repository secrets after signing up at snyk.io
-- Or just ignore this - the workflow is commented out anyway
-
-**"Docker push failed"**
-- Add Docker Hub credentials to secrets
-- Or remove the docker-publish job if you don't need it
+**"Docker Hub publish skipped"**
+- `DOPPLER_IDENTITY_ID` is not set, or the Doppler `ci` config has no
+  `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`. GHCR is published either way.
 
 ## Cost and Limits
 
