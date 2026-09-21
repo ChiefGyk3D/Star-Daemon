@@ -30,7 +30,7 @@ jobs:
       coverage-python-version: "3.13"
       install-command: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install --require-hashes -r requirements.txt
         pip install pytest
       test-command: |
         python -m py_compile star-daemon.py star_daemon.py star_announcer.py github_stars.py config.py platforms.py tests/*.py
