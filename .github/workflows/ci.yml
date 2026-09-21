@@ -43,6 +43,6 @@ jobs:
       dockerfile: docker/Dockerfile
       # Python modules must be syntactically valid without requiring env vars
       docker-test-command: docker run --rm "$IMAGE" sh -c "python -m py_compile /app/star-daemon.py /app/star_daemon.py /app/star_announcer.py /app/github_stars.py /app/config.py /app/platforms.py"
-      doppler-project: star-daemon
+      doppler-project: ci
       doppler-config: ci
       doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}

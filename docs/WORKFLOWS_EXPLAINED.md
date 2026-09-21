@@ -63,8 +63,8 @@ cosign verify ghcr.io/chiefgyk3d/star-daemon:latest \
 
 Nothing is stored in this repository's GitHub secrets. A job authenticates to
 Doppler with a short-lived token minted from its own GitHub OIDC identity (a
-Doppler Service Account Identity) and reads the `ci` config of the
-`star-daemon` project. For Star-Daemon that config holds:
+Doppler Service Account Identity) and reads the `ci` config of the shared
+`ci` Doppler project. For Star-Daemon that config holds:
 
 - `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` - Docker Hub publishing
 
