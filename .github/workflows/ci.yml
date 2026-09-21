@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-ci.yml@d5d9556afeeb06f78419b91ecb5d146e789c6d51 # v1.0.0
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-ci.yml@38f1c486833c7f572502b134e950913cc92d044c # v1.1.1
     permissions:
       contents: read
       id-token: write   # Doppler OIDC (see the reusable workflow's README)
@@ -43,6 +43,6 @@ jobs:
       dockerfile: docker/Dockerfile
       # Python modules must be syntactically valid without requiring env vars
       docker-test-command: docker run --rm "$IMAGE" sh -c "python -m py_compile /app/star-daemon.py /app/star_daemon.py /app/star_announcer.py /app/github_stars.py /app/config.py /app/platforms.py"
-      doppler-project: star-daemon
+      doppler-project: ci
       doppler-config: ci
       doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
