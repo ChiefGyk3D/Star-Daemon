@@ -11,11 +11,11 @@ python-dotenv
 requests
 
 # Mastodon
-Mastodon.py
+Mastodon.py>=2.2.2
 
 # BlueSky / AT Protocol
 atproto
-beautifulsoup4
+beautifulsoup4>=4.15.0
 
 # Secrets management (optional providers)
 doppler-sdk
