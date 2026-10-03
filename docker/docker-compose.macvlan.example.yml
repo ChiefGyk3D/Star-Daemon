@@ -1,0 +1,59 @@
+# Macvlan Network Override Example
+# ============================================================
+# Use this to place the container on a macvlan network with a
+# static IP on your LAN. Useful for VLAN segmentation or when
+# you need the bot to appear as its own host on the network.
+#
+# Setup:
+#   1. Create the macvlan network (adjust parent/subnet for your LAN):
+#      docker network create -d macvlan \
+#        --subnet=192.168.1.0/24 \
+#        --gateway=192.168.1.1 \
+#        -o parent=eth0 \
+#        my-macvlan
+#
+#   2. Copy this file to the repo root as docker-compose.override.yml:
+#      cp docker/docker-compose.macvlan.example.yml docker-compose.override.yml
+#
+#      Or if running from the docker/ directory:
+#      cp docker-compose.macvlan.example.yml docker-compose.override.yml
+#
+#   3. Edit the IP address, DNS, and network name to match your setup.
+#
+#   4. Start normally — the override is picked up automatically:
+#      docker compose up -d
+#
+# Alternatively, create a root-level docker-compose.yml that references
+# the GHCR image directly (bypassing the build-context compose in docker/):
+#
+#   services:
+#     star-daemon:
+#       image: ghcr.io/chiefgyk3d/star-daemon:latest
+#       container_name: star-daemon
+#       restart: unless-stopped
+#       env_file: .env
+#       volumes:
+#         - star-daemon-state:/home/stardaemon
+#       networks:
+#         my-macvlan:
+#           ipv4_address: 192.168.1.52
+#       dns:
+#         - 192.168.1.1
+#   volumes:
+#     star-daemon-state:
+#   networks:
+#     my-macvlan:
+#       external: true
+# ============================================================
+
+services:
+  star-daemon:
+    networks:
+      my-macvlan:
+        ipv4_address: 192.168.1.52
+    dns:
+      - 192.168.1.1
+
+networks:
+  my-macvlan:
+    external: true
