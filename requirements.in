@@ -1,0 +1,27 @@
+# Direct dependencies. requirements.txt is generated from this file with every transitive
+# dependency pinned and hashed; regenerate it after editing here:
+#
+#   pip install uv
+#   uv pip compile requirements.in --universal --generate-hashes --python-version 3.11 -o requirements.txt
+#
+# pip enters hash-checking mode by itself when it reads requirements.txt, so
+# `pip install -r requirements.txt` verifies every download against the lock.
+
+python-dotenv
+requests
+
+# Mastodon
+Mastodon.py>=2.2.2
+
+# BlueSky / AT Protocol
+atproto
+beautifulsoup4>=4.15.0
+
+# Secrets management (optional providers)
+doppler-sdk
+boto3
+hvac
+
+# Shared LLM layer (Ollama + Gemini with guardrails and failover), from the
+# hypeman-social library used across ChiefGyk3D's daemons.
+hypeman-social[bluesky,mastodon,ollama,gemini]>=0.2.0,<0.3

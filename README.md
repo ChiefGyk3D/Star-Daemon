@@ -19,13 +19,13 @@ Star-Daemon monitors your GitHub starred repositories and automatically posts up
 
 ## 🚀 Features
 
-- **Multi-Platform Support**: Post to Mastodon, BlueSky, Discord, and Matrix simultaneously
-- **Rich Formatting**: Mastodon posts now include repository metadata (stars, language, description) like BlueSky
+- **Multi-Platform Support**: Post to Mastodon, BlueSky, Discord, Matrix, and Threads simultaneously — via the shared [hypeman-social](https://github.com/ChiefGyk3D/hypeman) library, so every network the library grows arrives here for free
+- **Rich Formatting**: repository embeds and cards on every platform — Discord gets a rich embed with stars/language/forks fields and the owner's avatar, BlueSky an API-metadata link card, Mastodon a text card with the avatar attached, Matrix HTML with repository details
 - **Dockerized**: Easy deployment with Docker and Docker Compose
 - **Secure Configuration**: Multiple secrets management options (Doppler, AWS Secrets Manager, HashiCorp Vault, or .env files)
 - **Flexible**: Enable/disable platforms individually
 - **Customizable**: Template-based message formatting with repository name
-- **Reliable**: Automatic retries and error handling
+- **Rate-limit friendly**: One conditional API request per check (304s are free), regardless of how many repos you have starred; backs off automatically when the remaining quota runs low
 - **Lightweight**: Minimal resource usage
 - **Open Source**: Mozilla Public License 2.0 (MPL-2.0) licensed
 
@@ -153,14 +153,18 @@ Or manually:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `CHECK_INTERVAL` | No | 60 | Check interval in seconds |
+| `CHECK_INTERVAL` | No | 300 | Check interval in seconds |
 | `LOG_LEVEL` | No | INFO | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `STATE_FILE` | No | `~/.star-daemon-state.json` | Path of the JSON state file |
+| `RESYNC_INTERVAL` | No | 86400 | Seconds between full re-enumerations of your starred repos (prunes unstars, heals drift); `0` disables |
+| `RATE_LIMIT_FLOOR` | No | 100 | When fewer GitHub API requests than this remain, sleep until the rate-limit window resets instead of polling |
+| `HEALTH_PORT` | No | 0 (off) | Serve `/healthz` and `/status` on this port (binds to `127.0.0.1`) |
 
 ### GitHub Configuration
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GITHUB_ACCESS_TOKEN` | **Yes** | GitHub Personal Access Token with `repo` and `user` scopes |
+| `GITHUB_ACCESS_TOKEN` | **Yes** | GitHub Personal Access Token. A fine-grained PAT with only the **Starring (read)** account permission is recommended (least privilege); a classic token works too |
 | `GITHUB_USERNAME` | No | Monitor specific user (defaults to authenticated user) |
 
 [How to create a GitHub Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token)
@@ -218,6 +222,35 @@ Or manually:
 
 *Required if Matrix is enabled  
 **Either password or access token required
+
+#### Threads
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `THREADS_ENABLED` | No | Set to `true` to enable |
+| `THREADS_ACCESS_TOKEN` | Yes* | Long-lived Threads Graph API token (`threads_basic` + `threads_content_publish`) |
+| `THREADS_USER_ID` | Yes* | Numeric Threads user ID |
+
+*Required if Threads is enabled. Credential walkthrough: [hypeman-social configuration reference](https://github.com/ChiefGyk3D/hypeman/blob/main/docs/CONFIGURATION.md#social-threads).
+
+> **Naming note**: platform posting is implemented by
+> [hypeman-social](https://github.com/ChiefGyk3D/hypeman). Star-Daemon's
+> historical variable names (`MASTODON_ENABLED`, `MATRIX_USER_ID`,
+> `DISCORD_ROLE_ID`, ...) keep working — the daemon translates them to the
+> library's names (`MASTODON_ENABLE_POSTING`, `MATRIX_USERNAME`,
+> `DISCORD_ROLE`) at startup, and an explicitly set library-style name always
+> wins over the translation.
+
+### Health Endpoint (Optional)
+
+Set `HEALTH_PORT` to expose the daemon's health over HTTP (localhost only):
+
+- `GET /healthz` — 200 while every initialized platform is working, 503 when one is broken
+- `GET /status` — full detail: platforms, LLM provider state, last check, last post, uptime
+
+A downed AI server reports as **degraded, not unhealthy** — announcements
+still go out from `MESSAGE_TEMPLATE`. The Docker image ships a matching
+`HEALTHCHECK` that probes `/healthz` when `HEALTH_PORT` is set.
 
 ### Secrets Management (Optional)
 
@@ -327,6 +360,48 @@ MESSAGE_TEMPLATE="⭐ Starred {name}: {description}\n{url}"
 MESSAGE_TEMPLATE="🌟 New star: {url}"
 ```
 
+## 🤖 AI Star Announcements (Optional)
+
+Instead of the fixed template, Star-Daemon can ask an LLM to explain what the
+starred project actually *is* — a sentence or two written from the repo's
+name, description, language, and topics. It uses the same shared LLM layer
+([hypeman-social](https://github.com/ChiefGyk3D/hypeman)) as Boon-Tube-Daemon
+and stream-daemon, so a local Ollama server is a first-class citizen:
+
+```bash
+# In .env or Doppler
+LLM_ENABLE=true
+LLM_PROVIDER=ollama
+LLM_OLLAMA_HOST=http://your-ollama-box   # default: http://localhost
+LLM_OLLAMA_PORT=11434
+LLM_OLLAMA_MODEL=gemma3:4b               # or any model Ollama can load
+
+# Optional: fail over to Gemini when the local box is down (opt-in)
+LLM_FALLBACK_PROVIDER=gemini
+GEMINI_API_KEY=your_key_here
+
+# Or use Gemini as the primary instead:
+# LLM_PROVIDER=gemini
+```
+
+Example — starring `sharkdp/bat` posts something like:
+
+> Just starred bat — a modern take on cat written in Rust, with syntax
+> highlighting and git integration baked in. My terminal thanks me.
+>
+> https://github.com/sharkdp/bat
+
+Honesty guardrails are built in: the model only sees the repo's real
+metadata, and any message containing an invented star count, version number,
+"trending", or similar fabrication is rejected. When the LLM is disabled,
+unreachable, or its message fails validation, the daemon simply posts your
+`MESSAGE_TEMPLATE` instead — a star is never left unannounced because the AI
+box is down, and the connection heals automatically when it returns.
+
+Every LLM key (guardrail tuning, retries, thinking mode for reasoning models,
+and more) is documented in the
+[hypeman-social configuration reference](https://github.com/ChiefGyk3D/hypeman/blob/main/docs/CONFIGURATION.md).
+
 ## 🏗️ Project Structure
 
 ```
@@ -339,7 +414,7 @@ star-and-toot/
 │   ├── CONTRIBUTING.md
 │   ├── SECURITY.md
 │   ├── MIGRATION.md
-│   ├── CHANGELOG.md
+│   ├── SECRETS_MANAGEMENT.md
 │   ├── QUICKSTART.md
 │   └── SETUP_CHECKLIST.md
 ├── scripts/                   # Helper scripts
@@ -348,13 +423,11 @@ star-and-toot/
 │   ├── uninstall-systemd.sh   # systemd service uninstaller
 │   └── setup_matrix_bot.sh    # Matrix bot setup helper
 ├── .github/workflows/         # CI/CD automation
-├── connectors/                # Platform connectors
-│   ├── base.py
-│   ├── mastodon_connector.py
-│   ├── bluesky_connector.py
-│   ├── discord_connector.py
-│   └── matrix_connector.py
-├── star-daemon.py             # Main daemon
+├── platforms.py               # Social platform wiring (hypeman-social)
+├── star-daemon.py             # Entry point (shim)
+├── star_daemon.py             # Main daemon logic
+├── github_stars.py            # GitHub polling (rate-limit aware)
+├── tests/                     # Test suite (pytest)
 ├── config.py                  # Configuration management
 ├── .env.example               # Configuration template
 └── requirements.txt           # Python dependencies
@@ -362,24 +435,25 @@ star-and-toot/
 
 ### Architecture
 
-Star-Daemon uses a modular connector architecture where each platform is independent and can be enabled/disabled via configuration. The `.github/workflows/` folder contains GitHub Actions for automated testing and Docker builds.
+Star-Daemon builds one connector per platform from hypeman-social's registry (`platforms.py`); each platform is independent and can be enabled/disabled via configuration. The `.github/workflows/` folder contains GitHub Actions for automated testing and Docker builds.
 
 ## 🔒 Security
 
 - **Secrets Management**: Multiple options - Doppler, AWS Secrets Manager, HashiCorp Vault, or `.env` files
 - **Container Security**: Non-root user in Docker
-- **Pinned Dependencies**: Locked versions in `requirements.txt`
-- **Hash Verification**: Support for `pip install --require-hashes`
+- **Pinned Dependencies**: `requirements.txt` is a generated lock with every dependency, transitive ones included, pinned to a version and its SHA-256 hashes
+- **Hash Verification**: pip verifies every download against the lock; CI and the Docker image install with `--require-hashes`
 
-### Generating Locked Requirements with Hashes
+### Regenerating the lock
 
-For maximum security:
+`requirements.in` lists the direct dependencies. After editing it:
 
 ```bash
-pip install pip-tools
-pip-compile --generate-hashes requirements.in -o requirements-lock.txt
-pip install -r requirements-lock.txt --require-hashes
+pip install uv
+uv pip compile requirements.in --universal --generate-hashes --python-version 3.11 -o requirements.txt
 ```
+
+Dependabot regenerates the lock for version bumps.
 
 ## 🐛 Troubleshooting
 
@@ -389,7 +463,7 @@ pip install -r requirements-lock.txt --require-hashes
 A: Enable at least one platform by setting `*_ENABLED=true` in your `.env` file or Doppler
 
 **Q: GitHub rate limiting**  
-A: Increase `CHECK_INTERVAL` to reduce API calls
+A: Each check costs at most one API request (and none at all when nothing changed, via conditional requests). If the quota still runs low - e.g. other tools share the token - the daemon logs a warning and sleeps until the window resets (`RATE_LIMIT_FLOOR`). Watch the remaining quota with `LOG_LEVEL=DEBUG`
 
 **Q: Matrix connection fails**  
 A: Ensure you're using an app password or access token, not your main password
@@ -412,8 +486,20 @@ LOG_LEVEL=DEBUG
 - [CONTRIBUTING.md](docs/CONTRIBUTING.md) - Contribution guidelines
 - [SECURITY.md](docs/SECURITY.md) - Security policy and reporting
 - [MIGRATION.md](docs/MIGRATION.md) - Migration guide from v1.x
-- [CHANGELOG.md](docs/CHANGELOG.md) - Version history
+- [CHANGES.md](CHANGES.md) - Version history
 - [QUICKSTART.md](docs/QUICKSTART.md) - Quick reference guide
+
+## 🧪 Testing
+
+```bash
+pip install -r requirements.txt pytest
+pytest
+```
+
+The suite includes a regression test asserting that a star check costs exactly
+one API request no matter how many repositories are starred (the bug that used
+to exhaust the GitHub rate limit), plus an end-to-end test that runs the real
+daemon against a local fake GitHub/Matrix backend.
 
 ## 🤝 Contributing
 

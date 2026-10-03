@@ -43,7 +43,7 @@ Thank you for your interest in contributing to Star-Daemon! This document provid
 4. **Test your changes**
    ```bash
    # Run linting
-   flake8 *.py connectors/*.py
+   flake8 *.py
    
    # Test manually
    python star-daemon.py
@@ -112,13 +112,7 @@ Add BlueSky connector with rich metadata
 Star-Daemon/
 ├── star-daemon.py          # Main application entry point
 ├── config.py               # Configuration management
-├── connectors/             # Platform connectors
-│   ├── __init__.py
-│   ├── base.py            # Base connector class
-│   ├── mastodon_connector.py
-│   ├── bluesky_connector.py
-│   ├── discord_connector.py
-│   └── matrix_connector.py
+├── platforms.py            # Social platform wiring (hypeman-social)
 ├── requirements.txt        # Python dependencies
 ├── requirements.in         # Unpinned dependencies
 ├── Dockerfile             # Container definition
@@ -127,98 +121,27 @@ Star-Daemon/
 └── docs/                  # Documentation
 ```
 
-## 🔧 Adding a New Platform Connector
+## 🔧 Adding a New Platform
 
-To add support for a new social platform:
+Social platforms live in the shared [hypeman-social](https://github.com/ChiefGyk3D/hypeman)
+library, not in this repository — Star-Daemon builds one connector per entry
+in `hypeman_social.social.REGISTRY` (see `platforms.py`), so a platform added
+to the library reaches this daemon (and Boon-Tube-Daemon and stream-daemon)
+with no code changes here. That's exactly how Threads support arrived.
 
-1. **Create connector file**
-   ```bash
-   touch connectors/newplatform_connector.py
-   ```
+To add a platform:
 
-2. **Implement connector class**
-   ```python
-   from typing import Dict, Any
-   import logging
-   from .base import Connector
-   
-   logger = logging.getLogger(__name__)
-   
-   class NewPlatformConnector(Connector):
-       """Connector for NewPlatform"""
-       
-       def __init__(self, api_key: str):
-           super().__init__("NewPlatform", enabled=True)
-           self.api_key = api_key
-           self.client = None
-       
-       def initialize(self) -> bool:
-           """Initialize NewPlatform client"""
-           # Implementation
-           pass
-       
-       def post_message(self, message: str, metadata: Dict[str, Any] = None) -> bool:
-           """Post to NewPlatform"""
-           # Implementation
-           pass
-       
-       def test_connection(self) -> bool:
-           """Test connection to NewPlatform"""
-           # Implementation
-           pass
-   ```
+1. **Contribute it to hypeman-social** — subclass `SocialPlatform`, render
+   `EVENT_STAR` payloads (the `repo_data` dict), and register it in
+   `REGISTRY`. The checklist is in hypeman's
+   [CONTRIBUTING.md](https://github.com/ChiefGyk3D/hypeman/blob/main/CONTRIBUTING.md).
 
-3. **Update `connectors/__init__.py`**
-   ```python
-   from .newplatform_connector import NewPlatformConnector
-   
-   __all__ = [
-       # ... existing connectors
-       'NewPlatformConnector'
-   ]
-   ```
-
-4. **Add configuration to `config.py`**
-   ```python
-   # In Config.__init__
-   self.newplatform_enabled = self._get_bool('NEWPLATFORM_ENABLED', False)
-   self.newplatform_api_key = self._get_env('NEWPLATFORM_API_KEY', '')
-   
-   # In Config.validate
-   if self.newplatform_enabled:
-       if not self.newplatform_api_key:
-           errors.append("NewPlatform enabled but missing API key")
-   ```
-
-5. **Initialize in `star-daemon.py`**
-   ```python
-   # In StarDaemon._initialize_connectors
-   if config.newplatform_enabled:
-       connector = NewPlatformConnector(api_key=config.newplatform_api_key)
-       if connector.initialize() and connector.test_connection():
-           self.connectors.append(connector)
-   ```
-
-6. **Update `.env.example`**
-   ```bash
-   # =============================================================================
-   # NewPlatform Configuration
-   # =============================================================================
-   # Enable NewPlatform posting (true/false)
-   NEWPLATFORM_ENABLED=false
-   
-   # NewPlatform API key
-   NEWPLATFORM_API_KEY=your_api_key_here
-   ```
-
-7. **Add dependencies to `requirements.in`**
-   ```
-   newplatform-sdk
-   ```
-
-8. **Update documentation**
-   - Add platform section to README.md
-   - Create setup guide in `docs/NEWPLATFORM_SETUP.md`
+2. **Expose its toggle here** (optional but recommended) — add the
+   `NEWPLATFORM_ENABLED` flag and credentials to `config.py`, validation in
+   `Config.validate()`, and the translation in
+   `platforms.bridge_config_to_env()` so the daemon's env conventions keep
+   working. Deployments that use hypeman's own env names
+   (`NEWPLATFORM_ENABLE_POSTING`, ...) work with no changes at all.
 
 ## 🧪 Testing
 

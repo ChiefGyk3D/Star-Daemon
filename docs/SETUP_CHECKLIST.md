@@ -11,10 +11,9 @@ Use this checklist to ensure everything is properly configured after the overhau
 - [ ] Default branch set to `main`
 
 ### GitHub Settings
-- [ ] **Settings → Secrets → Actions**
-  - [ ] Add `SNYK_TOKEN` (get from https://snyk.io)
-  - [ ] Add `DOCKER_USERNAME` (if publishing to Docker Hub)
-  - [ ] Add `DOCKER_PASSWORD` (if publishing to Docker Hub)
+- [ ] **Settings → Secrets and variables → Actions → Variables**
+  - [ ] Add `DOPPLER_IDENTITY_ID` (the Doppler Service Account Identity for this repository)
+  - [ ] Put `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` in the Doppler `ci` config (if publishing to Docker Hub); nothing goes in GitHub secrets
 
 - [ ] **Settings → Security**
   - [ ] Enable Dependabot alerts
@@ -112,7 +111,7 @@ Use this checklist to ensure everything is properly configured after the overhau
 
 - [ ] `.env` file is in `.gitignore`
 - [ ] `.env` file is NOT committed to repository
-- [ ] Snyk token added to GitHub secrets
+- [ ] CI secrets (Docker Hub credentials) live in the Doppler `ci` config, not in GitHub secrets
 - [ ] GitHub security features enabled
 - [ ] API tokens have minimal required scopes
 - [ ] Using app-specific passwords where available
@@ -121,7 +120,7 @@ Use this checklist to ensure everything is properly configured after the overhau
 
 ## 🧪 Testing Checklist
 
-- [ ] All Python files compile: `python -m py_compile *.py connectors/*.py`
+- [ ] All Python files compile: `python -m py_compile *.py`
 - [ ] Configuration loads without errors
 - [ ] All enabled connectors initialize successfully
 - [ ] Connection tests pass for all platforms
@@ -143,9 +142,9 @@ Use this checklist to ensure everything is properly configured after the overhau
 
 ## 🚀 CI/CD Checklist
 
-- [ ] `.github/workflows/ci-cd.yml` present
-- [ ] `.github/workflows/snyk.yml` present
-- [ ] `.github/workflows/dependency-update.yml` present
+- [ ] `.github/workflows/ci.yml`, `release.yml` and `security.yml` present (callers of ChiefGyk3D/git-your-ship-together)
+- [ ] `.github/dependabot.yml` present
+- [ ] Repository variable `DOPPLER_IDENTITY_ID` set (see `docs/WORKFLOWS_EXPLAINED.md`)
 - [ ] GitHub Actions enabled
 - [ ] First workflow run successful
 - [ ] Snyk integration working
@@ -188,7 +187,7 @@ Use this checklist to ensure everything is properly configured after the overhau
 - [ ] Add monitoring/alerting (e.g., Prometheus, Grafana)
 - [ ] Set up log aggregation (e.g., ELK stack)
 - [ ] Create custom Docker image and publish
-- [ ] Add more platforms (create custom connectors)
+- [ ] Add more platforms (contribute a platform to [hypeman-social](https://github.com/ChiefGyk3D/hypeman) — Star-Daemon picks it up automatically)
 - [ ] Contribute improvements back to project
 
 ## 🐛 Troubleshooting Reference

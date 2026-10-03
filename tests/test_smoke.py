@@ -10,15 +10,13 @@ def test_smoke_imports():
     spec = importlib.util.spec_from_file_location("config", "config.py")
     assert spec is not None, "config.py module spec not found"
 
-    # Import connectors which don't require env vars at import time
-    from connectors import (
-        BlueSkyConnector,
-        DiscordConnector,
-        MastodonConnector,
-        MatrixConnector,
-    )
+    # Import the platform wiring, which doesn't require env vars at import
+    # time, and check the hypeman-social registry behind it.
+    from hypeman_social.social import REGISTRY
 
-    assert MastodonConnector is not None
-    assert BlueSkyConnector is not None
-    assert DiscordConnector is not None
-    assert MatrixConnector is not None
+    from platforms import Connector, PlatformConnector, build_connectors
+
+    assert Connector is not None
+    assert PlatformConnector is not None
+    assert build_connectors is not None
+    assert {"bluesky", "mastodon", "discord", "matrix", "threads"} <= set(REGISTRY)

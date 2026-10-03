@@ -1,4 +1,6 @@
-FROM python:3.13-slim
+# The base image is pinned by digest so a rebuild is reproducible and a
+# retagged upstream image cannot slip in; Dependabot moves the digest.
+FROM python:3.13-slim@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0
 
 # Set build arguments for platform detection (automatically set by buildx)
 ARG TARGETPLATFORM
@@ -26,15 +28,25 @@ ENV PYTHONUNBUFFERED=1 \
 # Copy requirements first for better caching
 COPY requirements.txt /app/
 
-# Install Python dependencies
+# Install Python dependencies, then drop pip from the runtime image. Nothing
+# installs packages at runtime, and pip's vendored copies of msgpack 1.1.2
+# (GHSA-6v7p-g79w-8964) and pkg_resources from setuptools 70.3.0
+# (CVE-2025-47273, CVE-2026-59890) are what Trivy reports as the image's
+# Python-level findings; the current pip still vendors those versions, so
+# upgrading it does not clear them. Both the venv's pip and the interpreter's
+# own copy go.
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir --require-hashes -r requirements.txt && \
+    pip uninstall -y pip && \
+    /usr/local/bin/python -m pip uninstall -y pip
 
 # Copy the application files
 COPY star-daemon.py /app/
+COPY star_daemon.py /app/
+COPY star_announcer.py /app/
+COPY github_stars.py /app/
 COPY config.py /app/
-COPY connectors/ /app/connectors/
-COPY .env.example /app/
+COPY platforms.py /app/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 stardaemon && \
@@ -46,6 +58,13 @@ USER stardaemon
 
 # Set home directory for state file persistence
 ENV HOME=/home/stardaemon
+
+# Liveness probe against the daemon's /healthz endpoint (hypeman-social
+# observability). Only meaningful when HEALTH_PORT is set; without it the
+# check passes trivially so the container isn't marked unhealthy for
+# choosing not to expose health. Uses urllib because slim images ship no curl.
+HEALTHCHECK --interval=60s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["python", "-c", "import os,sys,urllib.request;port=os.getenv('HEALTH_PORT');sys.exit(0) if not port else urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=4)"]
 
 # Run the application
 CMD ["python", "star-daemon.py"]
