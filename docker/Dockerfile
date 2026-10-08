@@ -10,7 +10,13 @@ ARG BUILDPLATFORM
 WORKDIR /app
 
 # Install system dependencies needed for Python packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Apply pending Debian security updates first (the base image lags them, and
+# the image scan fails on any fixed HIGH finding such as libpcre2).
+# Apt versions are left unpinned on purpose: the base image is pinned by digest,
+# and Debian removes superseded package versions, so exact apt pins would break
+# the build at every security update.
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     gcc \
     libffi-dev \
     libssl-dev \
@@ -35,7 +41,7 @@ COPY requirements.txt /app/
 # Python-level findings; the current pip still vendors those versions, so
 # upgrading it does not clear them. Both the venv's pip and the interpreter's
 # own copy go.
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade "pip>=25.3" && \
     pip install --no-cache-dir --require-hashes -r requirements.txt && \
     pip uninstall -y pip && \
     /usr/local/bin/python -m pip uninstall -y pip
@@ -48,13 +54,13 @@ COPY github_stars.py /app/
 COPY config.py /app/
 COPY platforms.py /app/
 
-# Create non-root user for security
-RUN useradd -m -u 1000 stardaemon && \
-    chown -R stardaemon:stardaemon /app && \
-    mkdir -p /home/stardaemon && \
-    chown -R stardaemon:stardaemon /home/stardaemon
+# Dedicated non-root user. UID/GID 1000 matches the owner of the existing
+# star-daemon-state volume (mounted at the home directory), so no chown.
+RUN groupadd --gid 1000 stardaemon && \
+    useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin stardaemon && \
+    chown -R stardaemon:stardaemon /app
 
-USER stardaemon
+USER 1000:1000
 
 # Set home directory for state file persistence
 ENV HOME=/home/stardaemon
