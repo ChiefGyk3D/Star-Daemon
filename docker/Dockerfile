@@ -12,10 +12,14 @@ WORKDIR /app
 # Install system dependencies needed for Python packages
 # Apply pending Debian security updates first (the base image lags them, and
 # the image scan fails on any fixed HIGH finding such as libpcre2).
+# Apt versions are left unpinned on purpose: the base image is pinned by digest,
+# and Debian removes superseded package versions, so exact apt pins would break
+# the build at every security update.
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    gcc=4:14.2.0-1 \
-    libffi-dev=3.4.8-2 \
-    libssl-dev=3.5.7-1~deb13u3 \
+    gcc \
+    libffi-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Create and activate virtual environment
