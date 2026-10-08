@@ -374,10 +374,11 @@ LLM_ENABLE=true
 LLM_PROVIDER=ollama
 LLM_OLLAMA_HOST=http://your-ollama-box   # default: http://localhost
 LLM_OLLAMA_PORT=11434
-LLM_OLLAMA_MODEL=gemma3:4b               # or any model Ollama can load
+LLM_OLLAMA_MODEL=gemma4:12b              # measured example; any model Ollama can load
 
 # Optional: fail over to Gemini when the local box is down (opt-in)
 LLM_FALLBACK_PROVIDER=gemini
+LLM_GEMINI_MODEL=gemini-2.0-flash-lite   # per-provider key, wins over shared LLM_MODEL
 GEMINI_API_KEY=your_key_here
 
 # Or use Gemini as the primary instead:
@@ -397,6 +398,15 @@ metadata, and any message containing an invented star count, version number,
 unreachable, or its message fails validation, the daemon simply posts your
 `MESSAGE_TEMPLATE` instead — a star is never left unannounced because the AI
 box is down, and the connection heals automatically when it returns.
+
+The per-provider model keys (`LLM_OLLAMA_MODEL`, `LLM_GEMINI_MODEL`) are read
+before the shared `LLM_MODEL`, so the local primary and the Gemini failover keep
+separate models. `gemma4:12b` is a thinking model: it needs hypeman-social 0.2.0
+or newer, which sends `think=False`; older versions get empty text back. Do not
+set a `num_ctx` for a shared Ollama server unless you mean to reload its model.
+On a sample of 20 real stars, `gemma4:12b` produced a usable post for all 20
+(median 13 s per post on a local GPU server), so the template fallback is the
+exception rather than the rule.
 
 Every LLM key (guardrail tuning, retries, thinking mode for reasoning models,
 and more) is documented in the
