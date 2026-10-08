@@ -10,7 +10,9 @@ ARG BUILDPLATFORM
 WORKDIR /app
 
 # Install system dependencies needed for Python packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Apply pending Debian security updates first (the base image lags them, and
+# the image scan fails on any fixed HIGH finding such as libpcre2).
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     gcc=4:14.2.0-1 \
     libffi-dev=3.4.8-2 \
     libssl-dev=3.5.7-1~deb13u3 \
