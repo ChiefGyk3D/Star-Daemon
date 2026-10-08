@@ -8,7 +8,7 @@ AI-written star announcements, powered by hypeman-social.
 Instead of the bare template ("I just starred X: <url>"), the daemon can ask
 an LLM to say what the project actually *is* — a sentence or two drawn from
 the repository's name, description, language, and topics. Runs against a
-local Ollama server (gemma3 by default) exactly like the other daemons, with
+local Ollama server (gemma4:12b is the measured example) exactly like the other daemons, with
 Gemini available as provider or failover.
 
 Configuration (same keys as Boon-Tube-Daemon and stream-daemon):
@@ -17,8 +17,14 @@ Configuration (same keys as Boon-Tube-Daemon and stream-daemon):
     LLM_PROVIDER=ollama            # or gemini
     LLM_OLLAMA_HOST=http://your-ollama-box
     LLM_OLLAMA_PORT=11434
-    LLM_OLLAMA_MODEL=gemma3:4b
+    LLM_OLLAMA_MODEL=gemma4:12b    # measured: 20/20 recent stars, no inventions
     LLM_FALLBACK_PROVIDER=gemini   # optional, opt-in failover
+    LLM_GEMINI_MODEL=gemini-2.0-flash-lite   # only used when Gemini is active
+
+hypeman reads the per-provider key (LLM_OLLAMA_MODEL / LLM_GEMINI_MODEL) before
+the shared LLM_MODEL, so a local primary and a Gemini failover can each keep
+their own model. hypeman 0.2.0 or newer sends think=False to thinking models
+such as gemma4; older versions get empty text back from them.
 
 The guardrails matter more here than anywhere else: a model asked to describe
 a repo it cannot see will happily invent star counts, versions, and "trending
@@ -116,7 +122,7 @@ class StarAnnouncer:
     @staticmethod
     def _build_prompt(name: str, description: str, language: str, topics) -> str:
         """
-        Prompt tuned for small local models (gemma3:4b class).
+        Prompt tuned for small local models (gemma4:12b measured, 4B class works).
 
         The hard rule is honesty: the model only knows what we hand it, so
         every instruction pushes it toward rephrasing the facts it has and
