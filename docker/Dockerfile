@@ -11,9 +11,9 @@ WORKDIR /app
 
 # Install system dependencies needed for Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libffi-dev \
-    libssl-dev \
+    gcc=4:14.2.0-1 \
+    libffi-dev=3.4.8-2 \
+    libssl-dev=3.5.7-1~deb13u3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create and activate virtual environment
@@ -35,7 +35,7 @@ COPY requirements.txt /app/
 # Python-level findings; the current pip still vendors those versions, so
 # upgrading it does not clear them. Both the venv's pip and the interpreter's
 # own copy go.
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade "pip>=25.3" && \
     pip install --no-cache-dir --require-hashes -r requirements.txt && \
     pip uninstall -y pip && \
     /usr/local/bin/python -m pip uninstall -y pip
@@ -48,13 +48,13 @@ COPY github_stars.py /app/
 COPY config.py /app/
 COPY platforms.py /app/
 
-# Create non-root user for security
-RUN useradd -m -u 1000 stardaemon && \
-    chown -R stardaemon:stardaemon /app && \
-    mkdir -p /home/stardaemon && \
-    chown -R stardaemon:stardaemon /home/stardaemon
+# Dedicated non-root user. UID/GID 1000 matches the owner of the existing
+# star-daemon-state volume (mounted at the home directory), so no chown.
+RUN groupadd --gid 1000 stardaemon && \
+    useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin stardaemon && \
+    chown -R stardaemon:stardaemon /app
 
-USER stardaemon
+USER 1000:1000
 
 # Set home directory for state file persistence
 ENV HOME=/home/stardaemon
