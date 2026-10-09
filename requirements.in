@@ -24,4 +24,4 @@ hvac
 
 # Shared LLM layer (Ollama + Gemini with guardrails and failover), from the
 # hypeman-social library used across ChiefGyk3D's daemons.
-hypeman-social[bluesky,mastodon,ollama,gemini]>=0.2.0,<0.3
+hypeman-social[bluesky,mastodon,ollama,gemini]>=0.3.4,<0.4
