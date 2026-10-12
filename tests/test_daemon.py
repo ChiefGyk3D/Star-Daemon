@@ -185,3 +185,22 @@ class TestBackoff:
         daemon.check_new_stars()
 
         assert daemon._next_delay() == 300
+
+
+class TestLogsCarryNoConfigValues:
+    """Log lines must not interpolate config-derived values (CodeQL
+    py/clear-text-logging-sensitive-data): the state path comes from the same
+    accessor as real secrets."""
+
+    def test_state_load_and_save_logs_omit_path(self, tmp_path, caplog):
+        import logging
+
+        api = FakeGitHubAPI(repo_count=2)
+        daemon = make_daemon(tmp_path, api)
+        with caplog.at_level(logging.DEBUG, logger=star_daemon.logger.name):
+            daemon.starred_repos = {"a/b"}
+            daemon._save_state()
+            daemon._load_state()
+        text = caplog.text
+        assert "Loaded state" in text and "Saved state" in text
+        assert str(tmp_path) not in text

@@ -139,7 +139,8 @@ def test_daemon_announces_new_star_end_to_end(tmp_path):
             output, _ = process.communicate()
         server.shutdown()
 
-    assert "Monitoring GitHub stars for user: testuser" in output
+    assert "Monitoring GitHub stars for the configured account" in output
+    assert "testuser" not in output.split("Monitoring GitHub stars")[1].splitlines()[0]
     assert "Initial run: tracking 250 starred repositories" in output
     assert "New star detected: integration/new-star" in output
     assert "Successfully posted to Matrix" in output

@@ -101,7 +101,7 @@ class AWSSecretsManager(SecretsManager):
             import boto3
             from botocore.exceptions import ClientError
 
-            logger.info(f"Loading secrets from AWS Secrets Manager: {aws_secret_name}")
+            logger.info("Loading secrets from AWS Secrets Manager")
 
             session = boto3.session.Session()
             client = session.client(

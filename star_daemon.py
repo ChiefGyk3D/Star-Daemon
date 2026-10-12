@@ -66,11 +66,11 @@ class StarDaemon:
                 rate_limit_floor=config.rate_limit_floor,
             )
 
-            if config.github_username:
-                login = config.github_username
-            else:
-                login = self.watcher.viewer_login()
-            logger.info(f"Monitoring GitHub stars for user: {login}")
+            # Resolve the account up front so a bad token fails fast; the login
+            # itself is not logged (config-derived values stay out of logs).
+            if not config.github_username:
+                self.watcher.viewer_login()
+            logger.info("Monitoring GitHub stars for the configured account")
 
             # Load previously tracked repos from state file
             self._load_state()
@@ -245,7 +245,7 @@ class StarDaemon:
                 with open(self.state_file, "r") as f:
                     state = json.load(f)
                     self.starred_repos = set(state.get("starred_repos", []))
-                logger.info(f"Loaded state from {self.state_file}")
+                logger.info(f"Loaded state ({len(self.starred_repos)} tracked repos)")
         except Exception as e:
             logger.warning(f"Could not load state file: {e}")
             self.starred_repos = set()
@@ -261,7 +261,7 @@ class StarDaemon:
             with open(tmp_file, "w") as f:
                 json.dump(state, f, indent=2)
             os.replace(tmp_file, self.state_file)
-            logger.debug(f"Saved state to {self.state_file}")
+            logger.debug(f"Saved state ({len(self.starred_repos)} tracked repos)")
         except Exception as e:
             logger.warning(f"Could not save state file: {e}")
 
