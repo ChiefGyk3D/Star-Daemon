@@ -22,9 +22,9 @@ beautifulsoup4==4.15.0 \
     # via
     #   -r requirements.in
     #   hypeman-social
-boto3==1.43.108 \
-    --hash=sha256:03341f089158368acf83e921aca98b706095322ca52bc4c039a616940aa5ad41 \
-    --hash=sha256:19e9da95ef0c494e27052049a42137550e66730509bb613e76eaa30ddf9a7170
+boto3==1.43.111 \
+    --hash=sha256:5ae342a16c848909cd42d4be404f69d9082e5705460198d4d3327eca5f6cddcb \
+    --hash=sha256:c79994619c8d89e45f6fd0edc5c5b5a70c9358f00423f4c99cb64931f89ecf37
     # via -r requirements.in
 botocore==1.43.112 \
     --hash=sha256:1e67a3dcf4a308c695d880b65463a492a971d5b28761b49add92f71e4322130f \
