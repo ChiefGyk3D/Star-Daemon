@@ -164,10 +164,27 @@ Or manually:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GITHUB_ACCESS_TOKEN` | **Yes** | GitHub Personal Access Token. A fine-grained PAT with only the **Starring (read)** account permission is recommended (least privilege); a classic token works too |
+| `GITHUB_ACCESS_TOKEN` | **Yes** | GitHub Personal Access Token. See [Required secrets](#required-secrets): a fine-grained PAT with only the **Starring (read)** account permission, no `repo`/`user`; a classic token with no scopes works too |
 | `GITHUB_USERNAME` | No | Monitor specific user (defaults to authenticated user) |
 
 [How to create a GitHub Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token)
+
+### Required secrets
+
+Star-Daemon refuses to start on an empty, unset, or template-placeholder value for anything it needs, and the error names the variable (never its value). One rule decides what a placeholder is, case-insensitively: empty, `<...>`, starting with `changeme`, `xxx` or `dp.st.your`, exactly `example` or `placeholder`, or containing `your_` / `your.` (for example `your_github_token_here`). Set secrets in the environment, Doppler, AWS Secrets Manager, or Vault (see [Secrets Management](#secrets-management-optional)); `.env.example` ships them empty.
+
+| Secret | Needed for | Without it |
+|--------|-----------|------------|
+| `GITHUB_ACCESS_TOKEN` | Always | Refuses to start (`ValueError` at import) |
+| `MASTODON_ACCESS_TOKEN`, `MASTODON_API_BASE_URL` | Only if `MASTODON_ENABLED=true` | Refuses to start; if Mastodon is not enabled it stays off and the log says so |
+| `BLUESKY_APP_PASSWORD`, `BLUESKY_HANDLE` | Only if `BLUESKY_ENABLED=true` | Same |
+| `DISCORD_WEBHOOK_URL` | Only if `DISCORD_ENABLED=true` | Same |
+| `MATRIX_PASSWORD` or `MATRIX_ACCESS_TOKEN` (plus homeserver, user ID, room ID) | Only if `MATRIX_ENABLED=true` | Same |
+| `THREADS_ACCESS_TOKEN`, `THREADS_USER_ID` | Only if `THREADS_ENABLED=true` | Same |
+
+At least one platform must be enabled. `MASTODON_CLIENT_ID` and `MASTODON_CLIENT_SECRET` are passed to the library but are not checked by Star-Daemon.
+
+**GitHub token scope (least privilege).** The daemon only reads your starred list (`GET /user/starred`, or `/users/<name>/starred` with `GITHUB_USERNAME`, and `GET /user`). Use a fine-grained token with only the **Starring (read)** account permission and no repository access. Do not grant `repo` or `user`: `repo` lets the token see private repositories you have starred, which is how a private repository could be announced publicly. A classic token with no scopes ticked also works (public stars only).
 
 ### Platform Configuration
 
