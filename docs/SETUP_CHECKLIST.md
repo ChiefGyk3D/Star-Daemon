@@ -49,7 +49,7 @@ Use this checklist to ensure everything is properly configured after the overhau
 
 #### GitHub
 - [ ] Create Personal Access Token at https://github.com/settings/tokens
-- [ ] Select scopes: `repo`, `user`
+- [ ] Fine-grained token, no repository access, account permission **Starring: Read-only** (do not grant `repo` or `user`; see README "Required secrets")
 - [ ] Add to `.env` as `GITHUB_ACCESS_TOKEN`
 
 #### Mastodon (if using)
