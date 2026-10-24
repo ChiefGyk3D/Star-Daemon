@@ -204,3 +204,63 @@ class TestLogsCarryNoConfigValues:
         text = caplog.text
         assert "Loaded state" in text and "Saved state" in text
         assert str(tmp_path) not in text
+
+
+class TestPrivateRepositories:
+    """A private repository the token can see must never be announced: its
+    name and description would go to the LLM provider and to public feeds."""
+
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            {"private": True},
+            {"private": True, "visibility": "private"},
+            {"visibility": "internal"},
+            {"visibility": "private"},
+        ],
+    )
+    def test_private_star_is_not_announced_or_sent_to_llm(self, tmp_path, flags):
+        api = FakeGitHubAPI(repo_count=20)
+        daemon = make_daemon(tmp_path, api)
+        seed(daemon, api)
+        repo = api.star("corp/secret-project")
+        repo.update(flags)
+
+        class SpyAnnouncer:
+            calls = 0
+
+            def compose(self, repo_data, url):
+                SpyAnnouncer.calls += 1
+                return "x"
+
+        daemon.announcer = SpyAnnouncer()
+        daemon.check_new_stars()
+
+        assert daemon.connectors[0].posts == []
+        assert SpyAnnouncer.calls == 0
+        # Still recorded as seen, so it is not retried every check.
+        assert "corp/secret-project" in daemon.starred_repos
+
+    def test_public_star_is_still_announced(self, tmp_path):
+        api = FakeGitHubAPI(repo_count=20)
+        daemon = make_daemon(tmp_path, api)
+        seed(daemon, api)
+        repo = api.star("cool/project")
+        repo.update({"private": False, "visibility": "public"})
+
+        daemon.check_new_stars()
+
+        assert len(daemon.connectors[0].posts) == 1
+
+    def test_private_skip_log_omits_repository_name(self, tmp_path, caplog):
+        import logging
+
+        api = FakeGitHubAPI(repo_count=20)
+        daemon = make_daemon(tmp_path, api)
+        seed(daemon, api)
+        api.star("corp/secret-project")["private"] = True
+
+        with caplog.at_level(logging.DEBUG, logger=star_daemon.logger.name):
+            daemon.check_new_stars()
+
+        assert "secret-project" not in caplog.text
