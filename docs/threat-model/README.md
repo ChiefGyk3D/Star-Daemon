@@ -30,8 +30,9 @@ Each element's description cites the file and function it came from.
 
 ## Open High and Critical threats
 
-- Starring a private repository publishes its name and description (the
-  daemon does not check the `private` flag).
+None open. Starring a private repository used to publish its name and
+description (High); `star_daemon.py::_is_non_public` now skips private and
+internal repositories, with tests in `tests/test_daemon.py::TestPrivateRepositories`.
 
 ## Open Medium threats worth a decision
 
