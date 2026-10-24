@@ -180,6 +180,14 @@ class StarDaemon:
     def _handle_new_star(self, repo: Dict[str, Any]):
         """Handle a newly starred repository (REST API JSON dict)"""
         try:
+            # /user/starred includes private repositories the token can see.
+            # Never announce one: its name and description would reach the
+            # LLM provider (possibly a cloud) and every public platform.
+            # The name stays out of the log for the same reason.
+            if self._is_non_public(repo):
+                logger.info("Skipping a non-public starred repository")
+                return
+
             owner = repo.get("owner") or {}
             description = repo.get("description")
 
@@ -237,6 +245,13 @@ class StarDaemon:
 
         except Exception as e:
             logger.error(f"Error handling new star: {e}", exc_info=True)
+
+    @staticmethod
+    def _is_non_public(repo: Dict[str, Any]) -> bool:
+        """True for private or internal repositories (REST API fields)."""
+        if repo.get("private") is True:
+            return True
+        return repo.get("visibility") in ("private", "internal")
 
     def _load_state(self):
         """Load tracked repositories from state file"""
