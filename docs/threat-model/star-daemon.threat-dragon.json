@@ -1,0 +1,939 @@
+{
+  "version": "2.6.2",
+  "summary": {
+    "title": "Star-Daemon threat model",
+    "owner": "",
+    "description": "Threat model for Star-Daemon (GitHub star announcer: polls the operator's starred list, optionally has an LLM write the post, publishes to Mastodon, Bluesky, Discord, Matrix, Threads). Drawn from star_daemon.py, github_stars.py, star_announcer.py, platforms.py, config.py, docker/, scripts/ and .github/ at the commit it was written against, plus the pinned hypeman-social 0.3.4 source read at its v0.3.4 tag. Not a full audit."
+  },
+  "detail": {
+    "diagrams": [
+      {
+        "id": 0,
+        "title": "Star-Daemon data flow",
+        "diagramType": "STRIDE",
+        "cells": [
+          {
+            "id": "tb-github",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "GitHub (external, untrusted content)",
+              "description": "Boundary 1. GitHub's API is the transport; the repository description, name and topics inside it are written by third parties (any repository author), so they are untrusted data."
+            },
+            "position": {
+              "x": 20,
+              "y": 40
+            },
+            "size": {
+              "width": 240,
+              "height": 480
+            }
+          },
+          {
+            "id": "tb-host",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "Daemon host or container",
+              "description": "Boundary 2. Star-Daemon process, its state file and its environment. Container: docker/Dockerfile (non-root UID 1000). Alternative: systemd unit written by scripts/install-systemd.sh."
+            },
+            "position": {
+              "x": 280,
+              "y": 40
+            },
+            "size": {
+              "width": 720,
+              "height": 600
+            }
+          },
+          {
+            "id": "tb-llm",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "LLM endpoint",
+              "description": "Boundary 3. Ollama server (LLM_OLLAMA_HOST, normally LAN) or Gemini (cloud, opt-in failover). Receives prompts containing untrusted text; returns text that is posted publicly."
+            },
+            "position": {
+              "x": 1020,
+              "y": 40
+            },
+            "size": {
+              "width": 240,
+              "height": 360
+            }
+          },
+          {
+            "id": "tb-social",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "Social platforms (public)",
+              "description": "Boundary 4. Mastodon, Bluesky, Discord webhook, Matrix, Threads. Posts leave the trust domain and become public (or room-visible)."
+            },
+            "position": {
+              "x": 1020,
+              "y": 440
+            },
+            "size": {
+              "width": 240,
+              "height": 360
+            }
+          },
+          {
+            "id": "tb-secrets",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "Secrets provider",
+              "description": "Boundary 5. Doppler, AWS Secrets Manager, HashiCorp Vault, or the local .env file (config.py)."
+            },
+            "position": {
+              "x": 280,
+              "y": 680
+            },
+            "size": {
+              "width": 220,
+              "height": 160
+            }
+          },
+          {
+            "id": "tb-supply",
+            "shape": "trust-boundary-box",
+            "data": {
+              "name": "Build and release supply chain",
+              "description": "Boundary 6. GitHub Actions callers of git-your-ship-together reusable workflows, Dependabot, GHCR and Docker Hub."
+            },
+            "position": {
+              "x": 20,
+              "y": 560
+            },
+            "size": {
+              "width": 240,
+              "height": 420
+            }
+          },
+          {
+            "id": "a-author",
+            "shape": "actor",
+            "data": {
+              "name": "Repository author (untrusted)",
+              "description": "Anyone who owns a repository the operator might star. Controls that repository's description, topics and name, which star_daemon.py::_handle_new_star copies into repo_data.",
+              "threats": []
+            },
+            "position": {
+              "x": 50,
+              "y": 100
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "a-gh",
+            "shape": "actor",
+            "data": {
+              "name": "GitHub REST API",
+              "description": "api.github.com (config.py: GITHUB_API_URL default). Endpoint /user/starred or /users/{name}/starred, read by github_stars.py::StarWatcher.",
+              "threats": []
+            },
+            "position": {
+              "x": 50,
+              "y": 320
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "p-watcher",
+            "shape": "process",
+            "data": {
+              "name": "StarWatcher (github_stars.py)",
+              "description": "Polls the starred list newest-first with ETag and rate-limit tracking; sends the GitHub token as a Bearer header (github_stars.py::_request).",
+              "threats": [
+                {
+                  "id": "t12",
+                  "number": 12,
+                  "status": "Mitigated",
+                  "severity": "Low",
+                  "type": "Denial of service",
+                  "title": "Exhausting the GitHub rate limit",
+                  "description": "Polling could drain the token's API quota and starve other tools.",
+                  "mitigation": "github_stars.py: one request per check, ETag conditional requests, _record_rate_limit and RateLimitError; star_daemon.py::_next_delay sleeps until reset below RATE_LIMIT_FLOOR. Tests: tests/test_rate_limit.py, tests/test_daemon.py::TestBackoff."
+                }
+              ]
+            },
+            "position": {
+              "x": 310,
+              "y": 100
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "p-daemon",
+            "shape": "process",
+            "data": {
+              "name": "StarDaemon main loop (star_daemon.py)",
+              "description": "check_new_stars, _handle_new_star, maybe_resync, run. Builds repo_data, calls the announcer, falls back to MESSAGE_TEMPLATE, fans out to connectors.",
+              "threats": [
+                {
+                  "id": "t7",
+                  "number": 7,
+                  "status": "Open",
+                  "severity": "High",
+                  "type": "Information disclosure",
+                  "title": "Starring a private repository publishes its name and description",
+                  "description": "github_stars.py::fetch_new_starred returns every item of /user/starred, which includes private repositories when the token can see them (a classic token with the repo scope, as docs/SETUP_CHECKLIST.md instructs; the README recommends a Starring-only fine-grained token). star_daemon.py::_handle_new_star does not check the repository's 'private' flag, so the name, description and URL go to the LLM provider (possibly cloud) and to every enabled public platform. Prerequisite: the operator stars a private repository they can access.",
+                  "mitigation": ""
+                },
+                {
+                  "id": "t13",
+                  "number": 13,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Denial of service",
+                  "title": "No cap on posts per check",
+                  "description": "check_new_stars posts every new repository returned (up to MAX_PAGES_PER_CHECK x 100 = 1000) to every platform in one pass. A burst of stars (for example from a compromised GitHub account or a script) would flood the operator's feeds and trip platform rate limits.",
+                  "mitigation": ""
+                },
+                {
+                  "id": "t14",
+                  "number": 14,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Repudiation",
+                  "title": "A star is marked known even when every post failed",
+                  "description": "_handle_new_star swallows exceptions and check_new_stars then adds the repository to the seen set and saves state, so a star whose posts all failed is never retried or reported as missed beyond a log line.",
+                  "mitigation": ""
+                },
+                {
+                  "id": "t15",
+                  "number": 15,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Repudiation",
+                  "title": "Model text written to logs unsanitized",
+                  "description": "star_announcer.py::compose logs the first 60 characters of the generated text with logger.info; the text may contain newlines or control characters from attacker-influenced input, allowing forged-looking log lines in stdout/journal.",
+                  "mitigation": ""
+                },
+                {
+                  "id": "t24",
+                  "number": 24,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Elevation of privilege",
+                  "title": "Container is not hardened beyond non-root",
+                  "description": "docker/docker-compose.yml sets no read_only, cap_drop or no-new-privileges, and docker/Dockerfile leaves gcc and dev headers in the runtime layer. Non-root user and resource limits are present. The systemd unit from install-systemd.sh does set NoNewPrivileges, ProtectSystem=strict and PrivateTmp.",
+                  "mitigation": ""
+                }
+              ]
+            },
+            "position": {
+              "x": 550,
+              "y": 100
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "s-state",
+            "shape": "store",
+            "data": {
+              "name": "State file",
+              "description": "JSON list of already-seen repository names (star_daemon.py::_load_state/_save_state). Default ~/.star-daemon-state.json, STATE_FILE override, a named volume in docker/docker-compose.yml. Written via temp file and os.replace.",
+              "threats": [
+                {
+                  "id": "t16",
+                  "number": 16,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Tampering",
+                  "title": "State file has no integrity or permission control",
+                  "description": "star_daemon.py::_save_state writes atomically (temp file plus os.replace) but sets no file mode. Anyone who can write the file can make old stars look new (re-announce) or empty it (silent re-seed). Prerequisite: local write access to the volume or home directory.",
+                  "mitigation": ""
+                }
+              ]
+            },
+            "position": {
+              "x": 790,
+              "y": 100
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "p-announcer",
+            "shape": "process",
+            "data": {
+              "name": "StarAnnouncer + hypeman LLMManager (star_announcer.py)",
+              "description": "Builds a prompt from name, description, language and topics (_build_prompt), calls LLMManager.generate, strips URLs (_strip_meta_text), applies hypeman STAR_PROFILE guardrails via apply_guardrails(platform='generic').",
+              "threats": [
+                {
+                  "id": "t1",
+                  "number": 1,
+                  "status": "Open",
+                  "severity": "Medium",
+                  "type": "Tampering",
+                  "title": "Prompt injection through repository description, name or topics",
+                  "description": "A repository author controls the description, topics and name that star_announcer.py::_build_prompt places inside the prompt (description wrapped in double quotes, no escaping, no length cap beyond GitHub's own). Text there can try to override the instructions and steer the post. Prerequisite: the operator stars the attacker's repository. Partial controls exist (see mitigation) but none constrain the content of the result beyond the checks listed.",
+                  "mitigation": "Partial only: prompt tells the model the facts are its whole knowledge; output length capped at CONTENT_MAX_CHARS=220 (safe_trim); hypeman STAR_PROFILE hallucination patterns, forbidden words, emoji cap and duplicate check run in apply_guardrails. No allow-list of what the text may contain. Residual accepted pending a decision on output filtering (see the output-filtering threat)."
+                },
+                {
+                  "id": "t2",
+                  "number": 2,
+                  "status": "Open",
+                  "severity": "Medium",
+                  "type": "Tampering",
+                  "title": "Untrusted model output posted publicly with no review and thin output checks",
+                  "description": "StarAnnouncer.compose returns the guarded text directly into post_message for every enabled platform with no human in the loop. apply_guardrails is called with platform='generic', so hypeman's per-platform checks (for example the Discord @everyone check in validate_platform_specific) do not run. _strip_meta_text removes only http(s):// URLs (star_announcer.py), so scheme-less domains and @-mentions of other accounts are not removed; the profanity filter and quality scoring default to off (hypeman llm/base.py).",
+                  "mitigation": ""
+                },
+                {
+                  "id": "t3",
+                  "number": 3,
+                  "status": "Mitigated",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Secret exposure through the model prompt",
+                  "description": "Credentials could reach the model host if they were placed in the prompt.",
+                  "mitigation": "star_announcer.py::_build_prompt interpolates only full_name, description, language and up to eight topics from repo_data; no config or token value is read in star_announcer.py. Test: tests/test_announcer.py::test_prompt_contains_only_known_facts."
+                },
+                {
+                  "id": "t4",
+                  "number": 4,
+                  "status": "Mitigated",
+                  "severity": "Low",
+                  "type": "Elevation of privilege",
+                  "title": "Model output driving an action or tool call",
+                  "description": "Model output could trigger code execution or file/network actions if it were interpreted.",
+                  "mitigation": "star_announcer.py::compose treats the result as a string only; there is no tool-calling, eval or shell path. The sole consumer is star_daemon.py::_handle_new_star, which posts it as text. Residual risk is the text itself (see the output-filtering threat)."
+                }
+              ]
+            },
+            "position": {
+              "x": 550,
+              "y": 300
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "p-connectors",
+            "shape": "process",
+            "data": {
+              "name": "Platform connectors (platforms.py + hypeman_social.social)",
+              "description": "build_connectors creates one hypeman platform per enabled network; PlatformConnector.post_message maps the message and repo_data to hypeman safe_post(stream_data event_kind=EVENT_STAR). Rendering code lives in the pinned dependency hypeman-social (requirements.txt, ==0.3.4); it was read at the v0.3.4 tag.",
+              "threats": [
+                {
+                  "id": "t8",
+                  "number": 8,
+                  "status": "Open",
+                  "severity": "Medium",
+                  "type": "Tampering",
+                  "title": "Matrix messages built with unescaped repository text (dependency)",
+                  "description": "hypeman_social/social/matrix.py (v0.3.4) builds formatted_body by string concatenation: repo_name, description and the message are inserted into HTML without escaping. A repository author can therefore inject markup (for example deceptive links) into the Matrix room. Matrix clients sanitize formatted_body to an allowed tag set, which limits script execution but not link or image spoofing. Fix belongs in hypeman-social.",
+                  "mitigation": ""
+                },
+                {
+                  "id": "t9",
+                  "number": 9,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Tampering",
+                  "title": "Repository description is published verbatim whether or not the LLM is used",
+                  "description": "Even on the MESSAGE_TEMPLATE path every platform renders repo_data.description: Discord embed field (first 1024 characters), Mastodon card (first 200), Bluesky card (first 1000), Matrix paragraph. Disabling the LLM therefore does not remove attacker-written text from posts, and Discord field values render markdown links.",
+                  "mitigation": ""
+                }
+              ]
+            },
+            "position": {
+              "x": 790,
+              "y": 300
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "p-config",
+            "shape": "process",
+            "data": {
+              "name": "Config loader (config.py)",
+              "description": "Reads Doppler, then AWS, then Vault, then .env/environment. platforms.py::bridge_config_to_env copies resolved platform credentials into os.environ for hypeman.",
+              "threats": [
+                {
+                  "id": "t17",
+                  "number": 17,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Platform credentials exported into the process environment",
+                  "description": "platforms.py::bridge_config_to_env copies tokens and passwords into os.environ, and config.py caches dict(os.environ) for the .env path. Any code in the process and any process able to read its environment (same user, or /proc access) can read them. Needed so hypeman can find them; no scrubbing after use.",
+                  "mitigation": ""
+                },
+                {
+                  "id": "t20",
+                  "number": 20,
+                  "status": "Mitigated",
+                  "severity": "Low",
+                  "type": "Tampering",
+                  "title": "MESSAGE_TEMPLATE format-string abuse",
+                  "description": "str.format on a template could expose attributes if attacker-controlled values were objects.",
+                  "mitigation": "star_daemon.py::_handle_new_star calls config.message_template.format with plain str/None values only (url, name, description); the template itself is operator configuration (config.py). Default template omits the description."
+                }
+              ]
+            },
+            "position": {
+              "x": 310,
+              "y": 500
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "p-health",
+            "shape": "process",
+            "data": {
+              "name": "Health endpoint (hypeman observability)",
+              "description": "Optional (HEALTH_PORT, default 0 = off). hypeman_social.observability.start_health_server binds 127.0.0.1 by default and serves /healthz and /status.",
+              "threats": [
+                {
+                  "id": "t19",
+                  "number": 19,
+                  "status": "Mitigated",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Health endpoint exposure",
+                  "description": "/status reports platform and LLM state with no authentication.",
+                  "mitigation": "Off unless HEALTH_PORT is set (config.py); hypeman start_health_server defaults host to 127.0.0.1; docker/docker-compose.yml publishes no ports. Residual: any local user can read it when enabled."
+                }
+              ]
+            },
+            "position": {
+              "x": 790,
+              "y": 500
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "a-ollama",
+            "shape": "actor",
+            "data": {
+              "name": "Ollama server",
+              "description": "LLM_OLLAMA_HOST (default http://localhost, port 11434). hypeman_social/llm/ollama.py prepends http:// when the host has no scheme. UNVERIFIED: whether the operator's server sits behind TLS or auth; nothing in this repo configures it.",
+              "threats": []
+            },
+            "position": {
+              "x": 1050,
+              "y": 100
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "a-gemini",
+            "shape": "actor",
+            "data": {
+              "name": "Gemini API (opt-in fallback)",
+              "description": "Used only when LLM_PROVIDER=gemini or LLM_FALLBACK_PROVIDER=gemini (star_announcer.py module docstring). Key read by hypeman from GEMINI_API_KEY or secrets. UNVERIFIED: hypeman gemini.py transport details beyond key handling.",
+              "threats": []
+            },
+            "position": {
+              "x": 1050,
+              "y": 260
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "a-social",
+            "shape": "actor",
+            "data": {
+              "name": "Mastodon, Bluesky, Discord, Matrix, Threads",
+              "description": "Public or room-visible destinations. Mastodon/Bluesky/Matrix/Discord rendering was read at hypeman v0.3.4; UNVERIFIED: the Threads connector (hypeman_social/social/threads.py) was not read.",
+              "threats": []
+            },
+            "position": {
+              "x": 1050,
+              "y": 500
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "a-audience",
+            "shape": "actor",
+            "data": {
+              "name": "Followers and the public",
+              "description": "Readers of the posts. Receive whatever text reaches the platforms.",
+              "threats": []
+            },
+            "position": {
+              "x": 1050,
+              "y": 660
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "s-secrets",
+            "shape": "store",
+            "data": {
+              "name": "Secrets (Doppler/AWS/Vault/.env)",
+              "description": "Holds GITHUB_ACCESS_TOKEN and every platform credential (config.py). Doppler wins over environment when a key exists there (Config._get_env). UNVERIFIED: transport security of the three SDKs; a Vault address is taken from VAULT_ADDR as given.",
+              "threats": [
+                {
+                  "id": "t18",
+                  "number": 18,
+                  "status": "Mitigated",
+                  "severity": "Medium",
+                  "type": "Information disclosure",
+                  "title": "Credentials committed to the repository",
+                  "description": "A token or webhook URL could be committed or left in history.",
+                  "mitigation": "No secrets in the repo by design (SECURITY.md); .gitignore and .dockerignore exclude .env; security.yml runs gitleaks over full history through git-your-ship-together with .gitleaks.toml extending the default ruleset; scripts/create-secrets.sh sets chmod 600 on generated .env files. Only .env.example was not read for this model."
+                }
+              ]
+            },
+            "position": {
+              "x": 310,
+              "y": 720
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "a-operator",
+            "shape": "actor",
+            "data": {
+              "name": "Operator (account owner)",
+              "description": "Runs the daemon, sets environment, MESSAGE_TEMPLATE, token scopes, and chooses which repositories to star. Trusted.",
+              "threats": []
+            },
+            "position": {
+              "x": 560,
+              "y": 720
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "p-ci",
+            "shape": "process",
+            "data": {
+              "name": "GitHub Actions workflows (.github/workflows)",
+              "description": "ci.yml, security.yml, release.yml, verify.yml, dependabot-auto-merge.yml, each a thin caller pinned by commit SHA to git-your-ship-together v1.24.0.",
+              "threats": [
+                {
+                  "id": "t21",
+                  "number": 21,
+                  "status": "Mitigated",
+                  "severity": "Medium",
+                  "type": "Tampering",
+                  "title": "Compromised image, dependency or workflow supply chain",
+                  "description": "A tampered base image, package or reusable workflow would run with every social credential.",
+                  "mitigation": "docker/Dockerfile pins the base image by digest, installs requirements.txt with --require-hashes, removes pip from the runtime image and runs as UID 1000; workflows are pinned by commit SHA (.github/workflows/*.yml); releases are signed with cosign with SBOM and provenance (SECURITY.md) and re-verified nightly (verify.yml); pip-audit, CodeQL, Trivy and dependency review run in CI; Dependabot has a 7-day cooldown (.github/dependabot.yml)."
+                },
+                {
+                  "id": "t22",
+                  "number": 22,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Tampering",
+                  "title": "Dependabot auto-merge feeds the signed release pipeline",
+                  "description": "dependabot-auto-merge.yml merges non-major updates once CI is green and release.yml publishes from main. A malicious but undetected patch release that outlives the 7-day cooldown and passes pip-audit would reach a signed image. Needs a compromised upstream release.",
+                  "mitigation": ""
+                },
+                {
+                  "id": "t25",
+                  "number": 25,
+                  "status": "Mitigated",
+                  "severity": "Low",
+                  "type": "Elevation of privilege",
+                  "title": "Over-privileged CI token",
+                  "description": "A compromised workflow step could abuse broad token permissions.",
+                  "mitigation": "Each workflow sets top-level permissions: contents: read; write scopes are granted only on the jobs that need them (release.yml packages/attestations/id-token, security.yml security-events); egress-policy: block is set on ci, security and release callers; no CI secret is stored in the repo (Doppler OIDC, SECURITY.md)."
+                }
+              ]
+            },
+            "position": {
+              "x": 50,
+              "y": 620
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "s-registry",
+            "shape": "store",
+            "data": {
+              "name": "Image registries (GHCR, Docker Hub)",
+              "description": "release.yml publishes the image signed with cosign, with SBOM and provenance (SECURITY.md); verify.yml re-verifies nightly.",
+              "threats": [
+                {
+                  "id": "t23",
+                  "number": 23,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Tampering",
+                  "title": "Signature check skipped when cosign is missing",
+                  "description": "scripts/install-systemd.sh verify_image prints a warning and returns success when cosign is not installed, so the image runs unverified.",
+                  "mitigation": ""
+                }
+              ]
+            },
+            "position": {
+              "x": 50,
+              "y": 800
+            },
+            "size": {
+              "width": 160,
+              "height": 80
+            }
+          },
+          {
+            "id": "f-publish",
+            "shape": "flow",
+            "source": {
+              "cell": "a-author"
+            },
+            "target": {
+              "cell": "a-gh"
+            },
+            "data": {
+              "name": "Author publishes repository metadata",
+              "description": "Description, topics, name set by the repository author on GitHub. This is the origin of every untrusted string that later reaches the model and the posts.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-poll",
+            "shape": "flow",
+            "source": {
+              "cell": "p-watcher"
+            },
+            "target": {
+              "cell": "a-gh"
+            },
+            "data": {
+              "name": "Poll starred list (token)",
+              "description": "HTTPS GET with Authorization: Bearer <token>, timeout 30 s (github_stars.py::_request). Follows Link rel=next URLs (fetch_new_starred, fetch_all_starred) without checking the host.",
+              "threats": [
+                {
+                  "id": "t10",
+                  "number": 10,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Bearer token sent to Link-header next URLs without a host check",
+                  "description": "github_stars.py::_request attaches Authorization to every URL it fetches, including rel=next URLs taken from the response. These come from GitHub (or the operator's GITHUB_API_URL), so exploiting it needs a compromised or malicious API endpoint. requests drops Authorization on cross-host redirects but not on a directly requested URL.",
+                  "mitigation": ""
+                }
+              ]
+            }
+          },
+          {
+            "id": "f-meta",
+            "shape": "flow",
+            "source": {
+              "cell": "a-gh"
+            },
+            "target": {
+              "cell": "p-watcher"
+            },
+            "data": {
+              "name": "Repository JSON, ETag, rate-limit headers",
+              "description": "Starred items with full_name, description, topics, html_url, owner.avatar_url. Includes private repositories the token can see when GITHUB_USERNAME is unset (/user/starred); star_daemon.py does not read the 'private' field.",
+              "threats": [
+                {
+                  "id": "t11",
+                  "number": 11,
+                  "status": "Mitigated",
+                  "severity": "Low",
+                  "type": "Spoofing",
+                  "title": "Forged GitHub API responses",
+                  "description": "A forged API response could make the daemon announce arbitrary repositories.",
+                  "mitigation": "github_stars.py::_request uses requests with default certificate verification (no verify=False anywhere in the repo; grep shows none) against the https://api.github.com default. Operator may override GITHUB_API_URL (config.py), which is trusted configuration."
+                }
+              ]
+            }
+          },
+          {
+            "id": "f-new",
+            "shape": "flow",
+            "source": {
+              "cell": "p-watcher"
+            },
+            "target": {
+              "cell": "p-daemon"
+            },
+            "data": {
+              "name": "New repository dicts",
+              "description": "fetch_new_starred returns repos not in the known set, oldest first.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-state",
+            "shape": "flow",
+            "source": {
+              "cell": "p-daemon"
+            },
+            "target": {
+              "cell": "s-state"
+            },
+            "data": {
+              "name": "Read and write seen set",
+              "description": "_load_state at startup, _save_state after each check and resync. A corrupt file is treated as empty (re-seeds without posting).",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-compose",
+            "shape": "flow",
+            "source": {
+              "cell": "p-daemon"
+            },
+            "target": {
+              "cell": "p-announcer"
+            },
+            "data": {
+              "name": "repo_data and html_url",
+              "description": "_handle_new_star passes full_name, description, language, topics to StarAnnouncer.compose.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-prompt",
+            "shape": "flow",
+            "source": {
+              "cell": "p-announcer"
+            },
+            "target": {
+              "cell": "a-ollama"
+            },
+            "data": {
+              "name": "Prompt with untrusted repo text",
+              "description": "Ollama client call (hypeman ollama.py), http:// unless the operator writes https:// in LLM_OLLAMA_HOST. No authentication is added by this repo.",
+              "threats": [
+                {
+                  "id": "t5",
+                  "number": 5,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Spoofing",
+                  "title": "Model host reached over plain HTTP without authentication",
+                  "description": "hypeman ollama.py builds an http:// URL when LLM_OLLAMA_HOST has no scheme, and nothing in this repo adds a token or pins a certificate. A party on the path between the daemon and the model host could read the prompt or substitute the reply, which becomes a public post. The model host also has full control over the text it returns (it is trusted by design).",
+                  "mitigation": "Operator may set https:// in LLM_OLLAMA_HOST; documented as a LAN service in star_announcer.py docstring. Not enforced."
+                }
+              ]
+            }
+          },
+          {
+            "id": "f-gen",
+            "shape": "flow",
+            "source": {
+              "cell": "a-ollama"
+            },
+            "target": {
+              "cell": "p-announcer"
+            },
+            "data": {
+              "name": "Generated announcement",
+              "description": "Free text returned by the model; passes _strip_meta_text and apply_guardrails before use.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-fallback",
+            "shape": "flow",
+            "source": {
+              "cell": "p-announcer"
+            },
+            "target": {
+              "cell": "a-gemini"
+            },
+            "data": {
+              "name": "Prompt to Gemini (opt-in)",
+              "description": "Same prompt content sent to a third-party cloud when Gemini is primary or fallback.",
+              "threats": [
+                {
+                  "id": "t6",
+                  "number": 6,
+                  "status": "Open",
+                  "severity": "Low",
+                  "type": "Information disclosure",
+                  "title": "Repository metadata sent to a third-party cloud when Gemini fallback is enabled",
+                  "description": "With LLM_FALLBACK_PROVIDER=gemini (opt-in) the prompt, including repository name and description, goes to a cloud provider. For public repositories this is public data; for a private repository see the private-repository threat.",
+                  "mitigation": "Opt-in only (star_announcer.py module docstring)."
+                }
+              ]
+            }
+          },
+          {
+            "id": "f-post",
+            "shape": "flow",
+            "source": {
+              "cell": "p-daemon"
+            },
+            "target": {
+              "cell": "p-connectors"
+            },
+            "data": {
+              "name": "Message plus metadata",
+              "description": "Message (AI text + URL, or MESSAGE_TEMPLATE result) and repo_data/thumbnail_url handed to each connector's safe_post (star_daemon.py::_handle_new_star).",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-out",
+            "shape": "flow",
+            "source": {
+              "cell": "p-connectors"
+            },
+            "target": {
+              "cell": "a-social"
+            },
+            "data": {
+              "name": "Authenticated posts",
+              "description": "Each platform call carries that platform's credential or webhook URL. Repo description, name and language are rendered verbatim into cards and embeds by hypeman (discord.py::_star_embed, mastodon.py::_with_repo_card, bluesky.py, matrix.py).",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-public",
+            "shape": "flow",
+            "source": {
+              "cell": "a-social"
+            },
+            "target": {
+              "cell": "a-audience"
+            },
+            "data": {
+              "name": "Public display",
+              "description": "Posts become visible to followers or room members.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-secrets",
+            "shape": "flow",
+            "source": {
+              "cell": "p-config"
+            },
+            "target": {
+              "cell": "s-secrets"
+            },
+            "data": {
+              "name": "Load credentials",
+              "description": "config.py: DopplerSecretsManager, AWSSecretsManager, VaultSecretsManager, then dotenv fallback.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-env",
+            "shape": "flow",
+            "source": {
+              "cell": "p-config"
+            },
+            "target": {
+              "cell": "p-connectors"
+            },
+            "data": {
+              "name": "Credentials via os.environ",
+              "description": "platforms.py::bridge_config_to_env uses os.environ.setdefault for MASTODON_*, BLUESKY_*, DISCORD_*, MATRIX_*, THREADS_* so hypeman finds them.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-operator",
+            "shape": "flow",
+            "source": {
+              "cell": "a-operator"
+            },
+            "target": {
+              "cell": "p-config"
+            },
+            "data": {
+              "name": "Environment, template, flags",
+              "description": "Operator-controlled configuration including MESSAGE_TEMPLATE and LLM_* settings.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-health",
+            "shape": "flow",
+            "source": {
+              "cell": "a-operator"
+            },
+            "target": {
+              "cell": "p-health"
+            },
+            "data": {
+              "name": "GET /healthz, /status",
+              "description": "Loopback by default; reports platform and LLM status.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-release",
+            "shape": "flow",
+            "source": {
+              "cell": "p-ci"
+            },
+            "target": {
+              "cell": "s-registry"
+            },
+            "data": {
+              "name": "Publish signed image",
+              "description": "release.yml via git-your-ship-together python-docker-release.yml.",
+              "threats": []
+            }
+          },
+          {
+            "id": "f-pull",
+            "shape": "flow",
+            "source": {
+              "cell": "s-registry"
+            },
+            "target": {
+              "cell": "p-daemon"
+            },
+            "data": {
+              "name": "Operator pulls or builds the image",
+              "description": "docker/docker-compose.yml builds from the Dockerfile; scripts/install-systemd.sh verifies the cosign signature only if cosign is installed.",
+              "threats": []
+            }
+          }
+        ]
+      }
+    ],
+    "threatTop": 25
+  }
+}
