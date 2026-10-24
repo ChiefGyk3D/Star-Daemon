@@ -24,6 +24,8 @@ from typing import Any, Dict, List, Optional
 
 from hypeman_social.social import EVENT_STAR, REGISTRY, DiscordPlatform, SocialPlatform
 
+from config import is_placeholder
+
 logger = logging.getLogger(__name__)
 
 
@@ -132,7 +134,9 @@ def bridge_config_to_env(config) -> None:
     """
 
     def export(name: str, value) -> None:
-        if value:
+        # Template placeholders are never handed to hypeman-social; its own
+        # check is case-sensitive and would let "your_..." through.
+        if value and not is_placeholder(value):
             os.environ.setdefault(name, str(value))
 
     export("MASTODON_ENABLE_POSTING", "true" if config.mastodon_enabled else "")
