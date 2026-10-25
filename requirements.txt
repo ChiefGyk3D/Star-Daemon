@@ -535,9 +535,9 @@ libipld==3.4.1 \
     --hash=sha256:ff6e77dd6ae94c198c5ab941e9b4e949721d5c13b252657d32cc6732957abf5d \
     --hash=sha256:ffc3d07153de944aa0ce4b974a4d8c4319bd88a95435055059df57dc793a5e26
     # via atproto
-mastodon-py==2.2.2 \
-    --hash=sha256:07131f6ac8820462de25b7641622b01b22f2b9ab6b3e7252749442f51fd30778 \
-    --hash=sha256:d18a107517836c783c93c9f2e713b4fad909fcd017f5036d2ce93d3dfd781904
+mastodon-py==2.3.3 \
+    --hash=sha256:12fccdbc3765bb4d06079eb7cf8e37aca6d06ec6a48da993141dd865955d5444 \
+    --hash=sha256:a3cda3db86d65809957c978aef8ac7fb3dfc93abfeda3f1c6bdef4c79090ab7b
     # via
     #   -r requirements.in
     #   hypeman-social

@@ -11,7 +11,7 @@ python-dotenv
 requests
 
 # Mastodon
-Mastodon.py>=2.2.2
+Mastodon.py>=2.3.3
 
 # BlueSky / AT Protocol
 atproto
