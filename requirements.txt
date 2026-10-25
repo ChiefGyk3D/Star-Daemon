@@ -22,13 +22,13 @@ beautifulsoup4==4.15.0 \
     # via
     #   -r requirements.in
     #   hypeman-social
-boto3==1.43.111 \
-    --hash=sha256:5ae342a16c848909cd42d4be404f69d9082e5705460198d4d3327eca5f6cddcb \
-    --hash=sha256:c79994619c8d89e45f6fd0edc5c5b5a70c9358f00423f4c99cb64931f89ecf37
+boto3==1.43.114 \
+    --hash=sha256:be704857751564a5cf69c5bbaadbfa01c22806409815c73563db42fbffe583a2 \
+    --hash=sha256:d9cac2eb921ce674970cef1c9ad750f85ee3a846aedcf188d18368fb9eb6da23
     # via -r requirements.in
-botocore==1.43.112 \
-    --hash=sha256:1e67a3dcf4a308c695d880b65463a492a971d5b28761b49add92f71e4322130f \
-    --hash=sha256:9ce0d70e09fabbb3a2e1126d3ec79ed67d14c88bb3f064e62ab2881d5eaf3c7b
+botocore==1.43.118 \
+    --hash=sha256:7f3f9d88cc9e847587690f82a42e3c3c292c3026c92c1e60d68a9310018e003f \
+    --hash=sha256:a45d7ae570674161e4a3542d8c68633bf7503f92d1de781ef7361b79488eda6f
     # via
     #   boto3
     #   s3transfer
