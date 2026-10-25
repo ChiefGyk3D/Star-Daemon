@@ -103,15 +103,11 @@ MESSAGE_TEMPLATE="..."    # Custom message format
 
 ### GitHub
 1. Go to https://github.com/settings/tokens
-2. Generate new token (classic)
-3. Select scopes (recommendation):
-	- For public repository monitoring only: use the classic `public_repo` scope, or better — create a fine-grained token with Repository → Read-only permissions for the specific repositories (or organization) you want to monitor.
-	- If you need access to private repositories or additional features, include `repo` (classic) or grant the specific fine-grained repository permissions required.
+2. Generate new token (fine-grained, recommended)
+3. Repository access: none. Account permissions: **Starring** -> Read-only. Do not grant `repo` or `user` (`repo` exposes private starred repositories, which could then be announced publicly). A classic token with no scopes ticked also works (public stars only).
 4. Copy token to `GITHUB_ACCESS_TOKEN` (or store it in your secrets manager such as Doppler, AWS Secrets Manager, or Vault and reference it in `.env`)
 
 Notes:
-- Fine-grained tokens are recommended when possible — they allow you to scope access to specific repositories and limit permissions.
-- If you only want to monitor public stars, `public_repo` (classic) or a fine-grained read-only repository token is sufficient.
 - Never commit your token to the repository; keep it in a secret store or GitHub Secrets for CI.
 
 ### Mastodon

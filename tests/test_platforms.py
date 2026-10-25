@@ -94,6 +94,14 @@ class TestEnvBridge:
 
         assert os.environ["MASTODON_ENABLE_POSTING"] == "false"
 
+    def test_placeholder_values_not_exported(self, monkeypatch):
+        for var in ("MATRIX_PASSWORD", "MATRIX_ENABLE_POSTING"):
+            monkeypatch.delenv(var, raising=False)
+        bridge_config_to_env(
+            make_config(matrix_enabled=True, matrix_password="your_matrix_password")
+        )
+        assert "MATRIX_PASSWORD" not in os.environ
+
 
 class FakePlatform:
     """Stands in for a hypeman SocialPlatform."""

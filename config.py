@@ -10,11 +10,28 @@ Supports multiple secrets management solutions:
 import json
 import logging
 import os
+import re
 from typing import Dict, Optional
 
 from dotenv import load_dotenv  # Import but don't call yet
 
 logger = logging.getLogger(__name__)
+
+# The one placeholder rule for every secret and credential-like value, matched
+# case-insensitively on the stripped value: empty, wrapped in <...>, starting
+# with changeme / xxx / dp.st.your, exactly "example" or "placeholder", or
+# containing a "your_" / "your." token (your_token_here, .../your_webhook_url,
+# @your_user:..., your.handle.bsky.social).
+_PLACEHOLDER_RE = re.compile(
+    r"^(<.*>|changeme.*|xxx.*|dp\.st\.your.*|example|placeholder)$"
+    r"|(?<![a-z0-9])your[_.]"
+)
+
+
+def is_placeholder(value: Optional[str]) -> bool:
+    """True if value is unset, empty, or an unedited template placeholder."""
+    text = "" if value is None else str(value).strip().lower()
+    return not text or bool(_PLACEHOLDER_RE.search(text))
 
 
 class SecretsManager:
@@ -282,8 +299,12 @@ class Config:
             # Key not in Doppler, fall back to environment or default
             value = os.getenv(key, default)
 
-        if required and not value:
-            raise ValueError(f"Required environment variable {key} is not set")
+        if required and is_placeholder(value):
+            # Never include the value: it may be a real, mistyped secret.
+            raise ValueError(
+                f"Required environment variable {key} is not set or is still "
+                "a template placeholder"
+            )
 
         return value
 
@@ -319,35 +340,73 @@ class Config:
                 "(Mastodon, BlueSky, Discord, Matrix, or Threads)"
             )
 
-        # Validate platform-specific configuration
+        # Validate platform-specific configuration. A missing, empty or
+        # placeholder value refuses to start; messages name the variable only.
+        def bad(*pairs):
+            return [name for name, value in pairs if is_placeholder(value)]
+
+        def require(label, *pairs):
+            missing = bad(*pairs)
+            if missing:
+                errors.append(
+                    f"{label} enabled but {', '.join(missing)} "
+                    "not set or still a template placeholder"
+                )
+
         if self.mastodon_enabled:
-            if not all([self.mastodon_api_base_url, self.mastodon_access_token]):
-                errors.append("Mastodon enabled but missing required configuration")
+            require(
+                "Mastodon",
+                ("MASTODON_API_BASE_URL", self.mastodon_api_base_url),
+                ("MASTODON_ACCESS_TOKEN", self.mastodon_access_token),
+            )
 
         if self.bluesky_enabled:
-            if not all([self.bluesky_handle, self.bluesky_app_password]):
-                errors.append("BlueSky enabled but missing required configuration")
+            require(
+                "BlueSky",
+                ("BLUESKY_HANDLE", self.bluesky_handle),
+                ("BLUESKY_APP_PASSWORD", self.bluesky_app_password),
+            )
 
         if self.discord_enabled:
-            if not self.discord_webhook_url:
-                errors.append(
-                    "Discord enabled but DISCORD_WEBHOOK_URL is not set "
-                    "(only webhook posting is supported)"
-                )
+            require(
+                "Discord (only webhook posting is supported)",
+                ("DISCORD_WEBHOOK_URL", self.discord_webhook_url),
+            )
 
         if self.threads_enabled:
-            if not all([self.threads_access_token, self.threads_user_id]):
-                errors.append(
-                    "Threads enabled but missing THREADS_ACCESS_TOKEN or THREADS_USER_ID"
-                )
+            require(
+                "Threads",
+                ("THREADS_ACCESS_TOKEN", self.threads_access_token),
+                ("THREADS_USER_ID", self.threads_user_id),
+            )
 
         if self.matrix_enabled:
-            if not all(
-                [self.matrix_homeserver, self.matrix_user_id, self.matrix_room_id]
+            require(
+                "Matrix",
+                ("MATRIX_HOMESERVER", self.matrix_homeserver),
+                ("MATRIX_USER_ID", self.matrix_user_id),
+                ("MATRIX_ROOM_ID", self.matrix_room_id),
+            )
+            if is_placeholder(self.matrix_password) and is_placeholder(
+                self.matrix_access_token
             ):
-                errors.append("Matrix enabled but missing required configuration")
-            if not self.matrix_password and not self.matrix_access_token:
-                errors.append("Matrix enabled but missing password or access token")
+                errors.append(
+                    "Matrix enabled but neither MATRIX_PASSWORD nor "
+                    "MATRIX_ACCESS_TOKEN is set (or both are template placeholders)"
+                )
+
+        # Optional features stay off, but say so.
+        for label, enabled in (
+            ("Mastodon", self.mastodon_enabled),
+            ("BlueSky", self.bluesky_enabled),
+            ("Discord", self.discord_enabled),
+            ("Matrix", self.matrix_enabled),
+            ("Threads", self.threads_enabled),
+        ):
+            if not enabled:
+                logger.info(
+                    f"{label} is disabled ({label.upper()}_ENABLED is not true)"
+                )
 
         if errors:
             for error in errors:
