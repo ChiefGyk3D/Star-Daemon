@@ -419,9 +419,9 @@ hvac==2.4.0 \
     --hash=sha256:008db5efd8c2f77bd37d2368ea5f713edceae1c65f11fd608393179478649e0f \
     --hash=sha256:e0056ad9064e7923e874e6769015b032580b639e29246f5ab1044f7959c1c7e0
     # via -r requirements.in
-hypeman-social==0.3.4 \
-    --hash=sha256:8d9d90b7551d26775cd597831f8e8311335b3f41ad2a34e996dd7be0fbfeab29 \
-    --hash=sha256:d9466f98dda66b7a297ddd0449ef4eda924862779547a2ab9090abee2e132b0a
+hypeman-social==0.4.0 \
+    --hash=sha256:35a807acc22f8543c8c6c2ccb76c88e956e92d212f1b03a0f70d2b0bcd9e64ae \
+    --hash=sha256:be1a1c884b2de215912e624c4d2382aa0ec3fd92402cec9f2faac98eda674987
     # via -r requirements.in
 idna==3.20 \
     --hash=sha256:a7db850025b95ded1eae8a46181a1a6c56c92c96f0e2b005d9ff8dc0210cab44 \
