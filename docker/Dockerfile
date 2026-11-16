@@ -1,6 +1,6 @@
 # The base image is pinned by digest so a rebuild is reproducible and a
 # retagged upstream image cannot slip in; Dependabot moves the digest.
-FROM python:3.13-slim@sha256:3dd7cc108ec1493442514f5c2a871af6af0ec31d768ff6e378a93340c3b3db5f
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
 
 # Set build arguments for platform detection (automatically set by buildx)
 ARG TARGETPLATFORM
