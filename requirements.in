@@ -17,6 +17,11 @@ Mastodon.py>=2.3.3
 atproto
 beautifulsoup4>=4.15.0
 
+# GHSA-vvf4-9x63-8xvv: dnspython (pulled in transitively via atproto) has a
+# DoS fix in 2.9.2; pinned explicitly so the floor doesn't depend on
+# atproto's own range.
+dnspython>=2.9.2,<3
+
 # Secrets management (optional providers)
 doppler-sdk
 boto3
