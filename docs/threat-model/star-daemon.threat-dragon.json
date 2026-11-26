@@ -546,7 +546,7 @@
             "shape": "process",
             "data": {
               "name": "GitHub Actions workflows (.github/workflows)",
-              "description": "ci.yml, security.yml, release.yml, verify.yml, dependabot-auto-merge.yml, each a thin caller pinned by commit SHA to git-your-ship-together v1.24.0.",
+              "description": "ci.yml, security.yml, release.yml, verify.yml, dependabot-auto-merge.yml, each a thin caller pinned by commit SHA to git-your-ship-together v1.38.0.",
               "threats": [
                 {
                   "id": "t21",
